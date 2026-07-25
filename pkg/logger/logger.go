@@ -12,14 +12,14 @@ func createLogger() *zap.Logger {
 	encodeCfg := zap.NewProductionEncoderConfig()
 	encodeCfg.TimeKey = "timestamp"
 	encodeCfg.EncodeTime = zapcore.ISO8601TimeEncoder
-	config := zap.Config {
-		Level: zap.NewAtomicLevelAt(getLogLevelFromEnv()),
-		Development: false,
-		DisableCaller: false,
+	config := zap.Config{
+		Level:             zap.NewAtomicLevelAt(getLogLevelFromEnv()),
+		Development:       false,
+		DisableCaller:     false,
 		DisableStacktrace: false,
-		Sampling: nil,
-		Encoding: "json",
-		EncoderConfig: encodeCfg,
+		Sampling:          nil,
+		Encoding:          "json",
+		EncoderConfig:     encodeCfg,
 		OutputPaths: []string{
 			"stdout",
 		},
@@ -30,7 +30,7 @@ func createLogger() *zap.Logger {
 			"pid": os.Getpid(),
 		},
 	}
-	return  zap.Must(config.Build())
+	return zap.Must(config.Build())
 }
 
 func getLogLevelFromEnv() zapcore.Level {

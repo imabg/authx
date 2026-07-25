@@ -1,3 +1,4 @@
 .vscode
 *.yaml
 feature.md
+makefile

@@ -14,18 +14,17 @@ import (
 	"go.uber.org/zap"
 )
 
-
 func main() {
 	env := config.NewConfig()
 	var wait time.Duration
-	flag.DurationVar(&wait, "graceful-timeout", time.Second * 15 , "")
+	flag.DurationVar(&wait, "graceful-timeout", time.Second*15, "")
 	flag.Parse()
 	// setup logger
 	logger.Setup()
-	zap.L().Info("logger is setup")	
+	zap.L().Info("logger is setup")
 
 	// setup db
-	dbCtx, dbCancel := context.WithTimeout(context.Background(), 5 * time.Second)
+	dbCtx, dbCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	conn, err := db.Setup(dbCtx, env)
 	if err != nil {
 		os.Exit(0)
@@ -38,7 +37,7 @@ func main() {
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
-	<- c
+	<-c
 
 	ctx, cancel := context.WithTimeout(context.Background(), wait)
 	defer cancel()

@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/imabg/authx/pkg/db"
 	"github.com/imabg/authx/pkg/config"
+	"github.com/imabg/authx/pkg/db"
 	"github.com/jackc/pgx/v5"
 	"go.uber.org/zap"
 )
@@ -18,29 +18,29 @@ type Server struct {
 	Logger *zap.Logger
 	Config config.ApplicationConfig
 	server *http.Server
-	db *pgx.Conn
+	db     *pgx.Conn
 }
 
 func Setup(config config.ApplicationConfig, db *db.DB) *Server {
-	return  &Server{
+	return &Server{
 		Logger: zap.L(),
 		Config: config,
-		db: db.Connection(),
+		db:     db.Connection(),
 	}
 }
 
-func(srv *Server) Run() {
+func (srv *Server) Run() {
 	srv.setupRouter()
 	srv.server = &http.Server{
-		Handler: srv.Router,
+		Handler:      srv.Router,
 		WriteTimeout: 10 * time.Second,
-		ReadTimeout: 15 * time.Second,
-		Addr: srv.Config.App.PORT,
+		ReadTimeout:  15 * time.Second,
+		Addr:         srv.Config.App.PORT,
 	}
-	go func ()  {
+	go func() {
 		if err := srv.server.ListenAndServe(); err != nil {
-		srv.Logger.Error("Error while starting server", zap.Error(err))
-	}
+			srv.Logger.Error("Error while starting server", zap.Error(err))
+		}
 	}()
 	srv.Logger.Info("server is started: %s", zap.String("addr", srv.server.Addr))
 }
@@ -51,7 +51,7 @@ func (srv *Server) setupMiddlewares() {
 }
 
 // setupRouter bind middlewares and routes with router
-func(srv *Server) setupRouter()  {
+func (srv *Server) setupRouter() {
 	srv.Router = mux.NewRouter()
 	srv.setupMiddlewares()
 	srv.Router = srv.Router.PathPrefix("/api").Subrouter()
