@@ -7,7 +7,9 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/imabg/authx/pkg/db"
 	"github.com/imabg/authx/pkg/config"
+	"github.com/jackc/pgx/v5"
 	"go.uber.org/zap"
 )
 
@@ -16,12 +18,14 @@ type Server struct {
 	Logger *zap.Logger
 	Config config.ApplicationConfig
 	server *http.Server
+	db *pgx.Conn
 }
 
-func Setup(config config.ApplicationConfig) *Server {
+func Setup(config config.ApplicationConfig, db *db.DB) *Server {
 	return  &Server{
 		Logger: zap.L(),
 		Config: config,
+		db: db.Connection(),
 	}
 }
 
