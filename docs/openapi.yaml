@@ -1,0 +1,1295 @@
+openapi: 3.0.3
+info:
+  title: Authx API
+  version: 1.0.0
+  description: |
+    Standalone auth service. Signup and login share one application-bound endpoint:
+    `POST /api/v1/auth`. The consuming application's settings choose `password`, `otp`,
+    or `magic_link`.
+
+    Create an application with `POST /api/v1/admin/applications`, then send the returned
+    `client_id` and `client_secret` as `X-Authx-Client-Id` and `X-Authx-Client-Secret` on
+    auth and user routes. Read an application with `GET /api/v1/admin/applications/{id}`
+    and update it (OTP, mailer credentials, `blocked_domains`, and other settings) with
+    `PATCH /api/v1/admin/applications/{id}`. Authenticated users can
+    update their profile with `PATCH /api/v1/me`; admins can update any user with
+    `PATCH /api/v1/admin/users/{id}`.
+  contact:
+    name: Authx
+servers:
+  - url: http://localhost:8080
+    description: Local
+tags:
+  - name: Health
+  - name: Auth
+  - name: Users
+  - name: Admin
+  - name: Docs
+
+paths:
+  /api/health:
+    get:
+      tags: [Health]
+      operationId: getHealth
+      summary: Health check
+      security: []
+      responses:
+        "200":
+          description: Service is up
+          headers:
+            X-Request-Id:
+              $ref: "#/components/headers/RequestId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+              example:
+                ok: true
+
+  /api/docs:
+    get:
+      tags: [Docs]
+      operationId: getDocsUI
+      summary: Swagger UI
+      security: []
+      responses:
+        "200":
+          description: HTML Swagger UI
+          content:
+            text/html:
+              schema:
+                type: string
+
+  /api/docs/openapi.yaml:
+    get:
+      tags: [Docs]
+      operationId: getOpenAPISpec
+      summary: OpenAPI 3 specification
+      security: []
+      responses:
+        "200":
+          description: OpenAPI YAML
+          content:
+            application/yaml:
+              schema:
+                type: string
+
+  /api/v1/auth:
+    post:
+      tags: [Auth]
+      operationId: authenticate
+      summary: Sign up or log in
+      description: |
+        Single signup-or-login endpoint. Required fields depend on the application's
+        `auth_method`. Wrong fields for the configured method return `400` with
+        `invalid_payload_for_auth_method`.
+
+        **password** — send `email` and `password`. If the user does not exist and
+        signup is enabled, they are created (`first_name` / `last_name` optional)
+        with `email_verified: false`. `email_verified` becomes true only after
+        successful email validation (OTP or magic-link verify). If
+        `email_verification_required` is true, a first call without `code` returns
+        `challenge_sent`; complete with `email`, `password`, and `code`.
+
+        **otp** — first call with `email` (no `code`, no `password`, no `token`)
+        returns `challenge_sent`. Complete with `email` and `code`. Completing OTP
+        proves inbox ownership and sets `email_verified: true`.
+
+        **magic_link** — first call with `email` (no `token`, no `password`, no `code`)
+        returns `challenge_sent`. Complete with `token` (and optionally `email`).
+        Completing the magic link proves inbox ownership and sets `email_verified: true`.
+        The consuming app hosts `/auth/callback` and posts the token back here.
+
+        Emails must be RFC-ish (`local@domain.tld`). Invalid format returns `400`.
+        If the email domain is in the application's `settings.blocked_domains`,
+        auth, refresh, and user routes return `403` with `email_domain_blocked`.
+      security:
+        - ApplicationClientId: []
+          ApplicationClientSecret: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuthenticateRequest"
+            examples:
+              password:
+                summary: Password signup or login
+                value:
+                  email: user@example.com
+                  password: ValidPass1
+                  first_name: Ada
+                  last_name: Lovelace
+              otpRequest:
+                summary: Request OTP
+                value:
+                  email: user@example.com
+              otpComplete:
+                summary: Complete OTP
+                value:
+                  email: user@example.com
+                  code: "123456"
+              magicLinkRequest:
+                summary: Request magic link
+                value:
+                  email: user@example.com
+              magicLinkComplete:
+                summary: Complete magic link
+                value:
+                  email: user@example.com
+                  token: OPAQUE_TOKEN_FROM_LINK
+              invalidEmail:
+                summary: Invalid email (400 validation_error)
+                value:
+                  email: not-an-email
+                  password: ValidPass1
+              blockedDomain:
+                summary: Blocked email domain (403 email_domain_blocked)
+                value:
+                  email: user@blocked.com
+                  password: ValidPass1
+      responses:
+        "200":
+          description: Authenticated, or a challenge was sent
+          headers:
+            X-Request-Id:
+              $ref: "#/components/headers/RequestId"
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/AuthenticatedResult"
+                  - $ref: "#/components/schemas/ChallengeResult"
+                discriminator:
+                  propertyName: status
+                  mapping:
+                    authenticated: "#/components/schemas/AuthenticatedResult"
+                    challenge_sent: "#/components/schemas/ChallengeResult"
+        "400":
+          $ref: "#/components/responses/AuthBadRequest"
+        "401":
+          $ref: "#/components/responses/UnauthorizedOrInvalidCredentials"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/auth/refresh:
+    post:
+      tags: [Auth]
+      operationId: refresh
+      summary: Rotate refresh token
+      description: Issues a new access/refresh pair and invalidates the previous refresh token.
+      security:
+        - ApplicationClientId: []
+          ApplicationClientSecret: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshRequest"
+            example:
+              refresh_token: opaque-refresh-token
+      responses:
+        "200":
+          description: New token pair
+          headers:
+            X-Request-Id:
+              $ref: "#/components/headers/RequestId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthenticatedResult"
+        "400":
+          $ref: "#/components/responses/InvalidJSON"
+        "401":
+          $ref: "#/components/responses/UnauthorizedOrInvalidCredentials"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/auth/logout:
+    post:
+      tags: [Auth]
+      operationId: logout
+      summary: Revoke refresh token
+      description: Revokes the given refresh token. Requires application credentials even though the body only carries the token.
+      security:
+        - ApplicationClientId: []
+          ApplicationClientSecret: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshRequest"
+            example:
+              refresh_token: opaque-refresh-token
+      responses:
+        "200":
+          description: Token revoked
+          headers:
+            X-Request-Id:
+              $ref: "#/components/headers/RequestId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LogoutResponse"
+              example:
+                status: logged_out
+        "400":
+          description: Invalid JSON or missing `refresh_token`
+          headers:
+            X-Request-Id:
+              $ref: "#/components/headers/RequestId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                invalidJson:
+                  value:
+                    code: invalid_json
+                    error: invalid request body
+                validation:
+                  value:
+                    code: validation_error
+                    error: invalid request
+        "401":
+          $ref: "#/components/responses/UnauthorizedApplication"
+        "403":
+          $ref: "#/components/responses/ApplicationDisabled"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/me:
+    get:
+      tags: [Users]
+      operationId: getMe
+      summary: Current user
+      description: Returns the user bound to the access token. Token `app_id` must match the application credentials. Users whose email domain is in `settings.blocked_domains` receive `403`.
+      security:
+        - ApplicationClientId: []
+          ApplicationClientSecret: []
+          BearerAuth: []
+      responses:
+        "200":
+          description: Current user
+          headers:
+            X-Request-Id:
+              $ref: "#/components/headers/RequestId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Missing application credentials, bearer token, or invalid access token
+          headers:
+            X-Request-Id:
+              $ref: "#/components/headers/RequestId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                missingApp:
+                  value:
+                    code: unauthorized
+                    error: missing application credentials
+                missingBearer:
+                  value:
+                    code: unauthorized
+                    error: missing bearer token
+                invalidToken:
+                  value:
+                    code: invalid_token
+                    error: invalid access token
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    patch:
+      tags: [Users]
+      operationId: updateMe
+      summary: Update current user
+      description: Partially updates the authenticated user's `first_name` and/or `last_name`. Users whose email domain is in `settings.blocked_domains` receive `403`.
+      security:
+        - ApplicationClientId: []
+          ApplicationClientSecret: []
+          BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserRequest"
+            example:
+              first_name: Grace
+              last_name: Hopper
+      responses:
+        "200":
+          description: Updated user
+          headers:
+            X-Request-Id:
+              $ref: "#/components/headers/RequestId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          $ref: "#/components/responses/InvalidJSONOrValidation"
+        "401":
+          description: Missing application credentials, bearer token, or invalid access token
+          headers:
+            X-Request-Id:
+              $ref: "#/components/headers/RequestId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                missingApp:
+                  value:
+                    code: unauthorized
+                    error: missing application credentials
+                missingBearer:
+                  value:
+                    code: unauthorized
+                    error: missing bearer token
+                invalidToken:
+                  value:
+                    code: invalid_token
+                    error: invalid access token
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/admin/applications:
+    post:
+      tags: [Admin]
+      operationId: createApplication
+      summary: Create an application
+      description: |
+        Creates an application and returns `client_id` plus a one-time `client_secret`.
+        Store the secret; it is not shown again. Omitted `settings` use defaults
+        (`auth_method: password`, signup enabled).
+      security:
+        - AdminKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateApplicationRequest"
+            examples:
+              password:
+                summary: Password auth
+                value:
+                  name: Acme
+                  description: Acme web app
+                  settings:
+                    auth_method: password
+                    signup_enabled: true
+              otp:
+                summary: OTP auth
+                value:
+                  name: Acme OTP
+                  settings:
+                    auth_method: otp
+                    signup_enabled: true
+              magicLink:
+                summary: Magic link auth
+                value:
+                  name: Acme Magic
+                  settings:
+                    auth_method: magic_link
+                    signup_enabled: true
+              sendgrid:
+                summary: OTP with SendGrid
+                value:
+                  name: Acme SendGrid
+                  settings:
+                    auth_method: otp
+                    otp:
+                      length: 6
+                      ttl_seconds: 300
+                    mail:
+                      provider: sendgrid
+                      from_email: noreply@acme.example
+                      from_name: Acme
+                      sendgrid:
+                        api_key: SG.xxxxxxxx
+              smtp:
+                summary: OTP with SMTP
+                value:
+                  name: Acme SMTP
+                  settings:
+                    auth_method: otp
+                    mail:
+                      provider: smtp
+                      from_email: noreply@acme.example
+                      from_name: Acme
+                      smtp:
+                        host: smtp.example.com
+                        port: 587
+                        username: acme
+                        password: smtp-secret
+                        tls: true
+                        skip_verify: false
+              blockedDomains:
+                summary: Password auth with blocked email domains
+                value:
+                  name: Acme
+                  settings:
+                    auth_method: password
+                    signup_enabled: true
+                    blocked_domains:
+                      - blocked.com
+                      - evil.org
+      responses:
+        "201":
+          description: Application created
+          headers:
+            X-Request-Id:
+              $ref: "#/components/headers/RequestId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateApplicationResponse"
+        "400":
+          description: Invalid JSON, missing name, or invalid settings
+          headers:
+            X-Request-Id:
+              $ref: "#/components/headers/RequestId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                invalidJson:
+                  value:
+                    code: invalid_json
+                    error: invalid request body
+                validation:
+                  value:
+                    code: validation_error
+                    error: name is required
+        "401":
+          description: Missing or invalid admin API key
+          headers:
+            X-Request-Id:
+              $ref: "#/components/headers/RequestId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: unauthorized
+                error: invalid admin credentials
+
+  /api/v1/admin/applications/{id}:
+    get:
+      tags: [Admin]
+      operationId: getApplication
+      summary: Get an application
+      description: |
+        Returns the application, including settings. Mail secrets are masked
+        (`********`). `settings.blocked_domains` is the current email domain
+        blocklist (empty if none).
+      security:
+        - AdminKey: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Application (secrets masked)
+          headers:
+            X-Request-Id:
+              $ref: "#/components/headers/RequestId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApplicationResponse"
+              example:
+                id: dddddddd-dddd-dddd-dddd-dddddddddddd
+                name: Acme
+                description: Acme web app
+                client_id: app_demo
+                status: active
+                settings:
+                  signup_enabled: true
+                  auth_method: password
+                  blocked_domains:
+                    - blocked.com
+                    - evil.org
+        "400":
+          $ref: "#/components/responses/InvalidJSONOrValidation"
+        "401":
+          $ref: "#/components/responses/UnauthorizedAdmin"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    patch:
+      tags: [Admin]
+      operationId: updateApplication
+      summary: Update an application
+      description: |
+        Partial update of name, description, status, and settings. Nested settings
+        are merged: omitted fields keep their current values. Sending `blocked_domains`
+        replaces the stored list; omitting it keeps the current list. SendGrid API
+        keys and SMTP passwords are never returned in plaintext (`********` if
+        configured). Posting the masked value leaves the stored secret unchanged.
+      security:
+        - AdminKey: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateApplicationRequest"
+            examples:
+              otp:
+                summary: Change OTP length and expiry
+                value:
+                  settings:
+                    otp:
+                      length: 8
+                      ttl_seconds: 120
+                      max_attempts: 5
+              sendgrid:
+                summary: Configure SendGrid
+                value:
+                  settings:
+                    mail:
+                      provider: sendgrid
+                      from_email: noreply@acme.example
+                      from_name: Acme
+                      sendgrid:
+                        api_key: SG.xxxxxxxx
+              smtp:
+                summary: Configure SMTP
+                value:
+                  settings:
+                    mail:
+                      provider: smtp
+                      from_email: noreply@acme.example
+                      from_name: Acme
+                      smtp:
+                        host: smtp.example.com
+                        port: 587
+                        username: acme
+                        password: smtp-secret
+                        tls: true
+                        skip_verify: false
+              disable:
+                summary: Disable application
+                value:
+                  status: disabled
+              blockedDomains:
+                summary: Replace blocked email domains
+                value:
+                  settings:
+                    blocked_domains:
+                      - blocked.com
+                      - evil.org
+              combined:
+                summary: OTP, blocklist, and mail (keep secret)
+                value:
+                  settings:
+                    otp:
+                      length: 8
+                      ttl_seconds: 120
+                      max_attempts: 5
+                    blocked_domains:
+                      - blocked.com
+                      - evil.org
+                    mail:
+                      provider: sendgrid
+                      from_email: noreply@acme.example
+                      from_name: Acme
+                      sendgrid:
+                        api_key: "********"
+      responses:
+        "200":
+          description: Updated application (secrets masked)
+          headers:
+            X-Request-Id:
+              $ref: "#/components/headers/RequestId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApplicationResponse"
+        "400":
+          $ref: "#/components/responses/InvalidJSONOrValidation"
+        "401":
+          $ref: "#/components/responses/UnauthorizedAdmin"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/admin/users/{id}:
+    patch:
+      tags: [Admin]
+      operationId: updateUser
+      summary: Update a user
+      description: Partially updates `first_name` and/or `last_name` for any user.
+      security:
+        - AdminKey: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserRequest"
+            example:
+              first_name: Grace
+              last_name: Hopper
+      responses:
+        "200":
+          description: Updated user
+          headers:
+            X-Request-Id:
+              $ref: "#/components/headers/RequestId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          $ref: "#/components/responses/InvalidJSONOrValidation"
+        "401":
+          $ref: "#/components/responses/UnauthorizedAdmin"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+components:
+  securitySchemes:
+    ApplicationClientId:
+      type: apiKey
+      in: header
+      name: X-Authx-Client-Id
+      description: Application client ID returned when the application was created
+    ApplicationClientSecret:
+      type: apiKey
+      in: header
+      name: X-Authx-Client-Secret
+      description: One-time application client secret from create-application
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: "Access token from authenticate or refresh (`Authorization: Bearer <token>`)"
+    AdminKey:
+      type: apiKey
+      in: header
+      name: X-Authx-Admin-Key
+      description: Value of `admin_api_key` in server config
+
+  headers:
+    RequestId:
+      description: Request correlation ID (echoes `X-Request-Id` or a generated UUID)
+      schema:
+        type: string
+        format: uuid
+
+  responses:
+    InvalidJSON:
+      description: Request body is not valid JSON
+      headers:
+        X-Request-Id:
+          $ref: "#/components/headers/RequestId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: invalid_json
+            error: invalid request body
+    InvalidJSONOrValidation:
+      description: Invalid JSON or validation error
+      headers:
+        X-Request-Id:
+          $ref: "#/components/headers/RequestId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            invalidJson:
+              value:
+                code: invalid_json
+                error: invalid request body
+            validation:
+              value:
+                code: validation_error
+                error: first_name must be at most 25 characters
+    UnauthorizedAdmin:
+      description: Missing or invalid admin API key
+      headers:
+        X-Request-Id:
+          $ref: "#/components/headers/RequestId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: unauthorized
+            error: invalid admin credentials
+    NotFound:
+      description: Resource not found
+      headers:
+        X-Request-Id:
+          $ref: "#/components/headers/RequestId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: not_found
+            error: application not found
+    AuthBadRequest:
+      description: Invalid JSON, payload does not match auth method, password policy, or validation error
+      headers:
+        X-Request-Id:
+          $ref: "#/components/headers/RequestId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            invalidJson:
+              value:
+                code: invalid_json
+                error: invalid request body
+            invalidPayload:
+              value:
+                code: invalid_payload_for_auth_method
+                error: payload does not match application auth method
+            passwordPolicy:
+              value:
+                code: password_policy
+                error: "password does not meet policy: must be at least 8 characters"
+            validation:
+              value:
+                code: validation_error
+                error: invalid request
+            invalidEmail:
+              summary: Invalid email format
+              value:
+                code: validation_error
+                error: invalid request
+    UnauthorizedApplication:
+      description: Missing or invalid application credentials
+      headers:
+        X-Request-Id:
+          $ref: "#/components/headers/RequestId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            missing:
+              value:
+                code: unauthorized
+                error: missing application credentials
+            invalid:
+              value:
+                code: unauthorized
+                error: invalid application credentials
+    UnauthorizedOrInvalidCredentials:
+      description: Missing/invalid application credentials or invalid user credentials / refresh token
+      headers:
+        X-Request-Id:
+          $ref: "#/components/headers/RequestId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            missingApp:
+              value:
+                code: unauthorized
+                error: missing application credentials
+            invalidApp:
+              value:
+                code: unauthorized
+                error: invalid application credentials
+            invalidCredentials:
+              value:
+                code: invalid_credentials
+                error: invalid credentials
+    ApplicationDisabled:
+      description: Application exists but is disabled
+      headers:
+        X-Request-Id:
+          $ref: "#/components/headers/RequestId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: application_disabled
+            error: application is disabled
+    Forbidden:
+      description: Application is disabled, or the user's email domain is on the application's blocklist
+      headers:
+        X-Request-Id:
+          $ref: "#/components/headers/RequestId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            applicationDisabled:
+              value:
+                code: application_disabled
+                error: application is disabled
+            emailDomainBlocked:
+              value:
+                code: email_domain_blocked
+                error: email domain is not allowed
+    RateLimited:
+      description: Too many OTP or magic-link challenge requests
+      headers:
+        X-Request-Id:
+          $ref: "#/components/headers/RequestId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: rate_limited
+            error: too many requests
+    InternalError:
+      description: Unexpected server error
+      headers:
+        X-Request-Id:
+          $ref: "#/components/headers/RequestId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: internal_error
+            error: internal error
+
+  schemas:
+    Error:
+      type: object
+      required: [error, code]
+      properties:
+        error:
+          type: string
+          description: Human-readable message
+        code:
+          type: string
+          description: Machine-readable error code
+          enum:
+            - unauthorized
+            - application_disabled
+            - invalid_token
+            - invalid_json
+            - invalid_payload_for_auth_method
+            - password_policy
+            - validation_error
+            - rate_limited
+            - invalid_credentials
+            - email_domain_blocked
+            - not_found
+            - internal_error
+
+    HealthResponse:
+      type: object
+      required: [ok]
+      properties:
+        ok:
+          type: boolean
+          example: true
+
+    AuthenticateRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+          description: Required for `password` auth. Must not be sent for otp or magic_link.
+        code:
+          type: string
+          description: OTP code. Used to complete otp auth, or password auth when email verification is required.
+        token:
+          type: string
+          description: Opaque magic-link token from the emailed callback URL.
+        first_name:
+          type: string
+          description: Used when creating a new user
+        last_name:
+          type: string
+          description: Used when creating a new user
+
+    RefreshRequest:
+      type: object
+      required: [refresh_token]
+      properties:
+        refresh_token:
+          type: string
+
+    LogoutResponse:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [logged_out]
+
+    AuthenticatedResult:
+      type: object
+      required: [status, access_token, refresh_token, expires_in, token_type, user]
+      properties:
+        status:
+          type: string
+          enum: [authenticated]
+        access_token:
+          type: string
+          description: JWT access token
+        refresh_token:
+          type: string
+          description: Opaque refresh token
+        expires_in:
+          type: integer
+          format: int64
+          description: Access token TTL in seconds
+        token_type:
+          type: string
+          enum: [Bearer]
+        user:
+          $ref: "#/components/schemas/User"
+        challenge_type:
+          type: string
+          nullable: true
+          description: Omitted when authenticated
+
+    ChallengeResult:
+      type: object
+      required: [status, challenge_type, expires_in]
+      properties:
+        status:
+          type: string
+          enum: [challenge_sent]
+        challenge_type:
+          type: string
+          enum: [otp, magic_link]
+        expires_in:
+          type: integer
+          format: int64
+          description: Challenge TTL in seconds
+        access_token:
+          type: string
+          nullable: true
+          description: Omitted when a challenge is pending
+        refresh_token:
+          type: string
+          nullable: true
+        token_type:
+          type: string
+          nullable: true
+        user:
+          nullable: true
+
+    User:
+      type: object
+      required:
+        - id
+        - application_id
+        - email
+        - first_name
+        - last_name
+        - email_verified
+        - status
+        - creation_timestamp
+        - updated_timestamp
+      properties:
+        id:
+          type: string
+          format: uuid
+        application_id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        first_name:
+          type: string
+        last_name:
+          type: string
+        signup_method:
+          type: string
+          description: Omitted when empty
+          enum: [password, otp, magic_link]
+        email_verified_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Set when email validation succeeds (OTP or magic-link verify). Omitted when the email is not verified.
+        email_verified:
+          type: boolean
+          description: True only after successful email validation (OTP or magic-link verify). Password signup and first contact leave this false.
+        status:
+          type: string
+          enum: [active, disabled]
+        creation_timestamp:
+          type: string
+          format: date-time
+        updated_timestamp:
+          type: string
+          format: date-time
+
+    CreateApplicationRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        settings:
+          $ref: "#/components/schemas/ApplicationSettings"
+          description: Optional. Empty or omitted uses defaults.
+
+    CreateApplicationResponse:
+      type: object
+      required: [id, name, description, client_id, client_secret, settings, status]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        client_id:
+          type: string
+          description: Send as `X-Authx-Client-Id`
+          example: app_0123456789abcdef0123456789abcdef
+        client_secret:
+          type: string
+          description: One-time secret. Send as `X-Authx-Client-Secret`. Not stored in plaintext.
+        settings:
+          $ref: "#/components/schemas/ApplicationSettings"
+        status:
+          type: string
+          enum: [active, disabled]
+
+    ApplicationSettings:
+      type: object
+      properties:
+        signup_enabled:
+          type: boolean
+          default: true
+        auth_method:
+          type: string
+          enum: [password, otp, magic_link]
+          default: password
+        password:
+          $ref: "#/components/schemas/PasswordSettings"
+        otp:
+          $ref: "#/components/schemas/OTPSettings"
+        magic_link:
+          $ref: "#/components/schemas/MagicLinkSettings"
+        tokens:
+          $ref: "#/components/schemas/TokenSettings"
+        email_verification_required:
+          type: boolean
+          default: false
+          description: When true with password auth, a verified OTP is required before tokens are issued.
+        blocked_domains:
+          type: array
+          items:
+            type: string
+          default: []
+          description: |
+            Email domains that cannot authenticate or use user routes (case-insensitive,
+            no `@` prefix). Compared to the domain after `@` (`user@Domain.COM` → `domain.com`).
+            Sending a new list on PATCH replaces the stored list; omitting the field keeps it.
+            Empty list allows all domains. Blocked emails receive `403` `email_domain_blocked`.
+          example:
+            - blocked.com
+            - evil.org
+        mail:
+          $ref: "#/components/schemas/MailSettings"
+          description: Per-application email transport. OTP and magic-link emails use these credentials.
+
+    PasswordSettings:
+      type: object
+      properties:
+        min_length:
+          type: integer
+          minimum: 6
+          default: 8
+        require_mixed_case:
+          type: boolean
+          default: true
+        require_digit:
+          type: boolean
+          default: true
+
+    OTPSettings:
+      type: object
+      properties:
+        length:
+          type: integer
+          minimum: 4
+          maximum: 12
+          default: 6
+        ttl_seconds:
+          type: integer
+          minimum: 30
+          maximum: 86400
+          default: 300
+        max_attempts:
+          type: integer
+          minimum: 1
+          default: 5
+
+    MagicLinkSettings:
+      type: object
+      properties:
+        ttl_seconds:
+          type: integer
+          default: 900
+
+    TokenSettings:
+      type: object
+      properties:
+        access_ttl_seconds:
+          type: integer
+          default: 900
+        refresh_ttl_seconds:
+          type: integer
+          default: 2592000
+
+    UpdateUserRequest:
+      type: object
+      properties:
+        first_name:
+          type: string
+          maxLength: 25
+        last_name:
+          type: string
+          maxLength: 50
+
+    UpdateApplicationRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum: [active, disabled]
+        settings:
+          $ref: "#/components/schemas/ApplicationSettings"
+          description: Partial settings object. Nested fields are merged with the stored settings.
+
+    ApplicationResponse:
+      type: object
+      required: [id, name, description, client_id, settings, status]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        client_id:
+          type: string
+        settings:
+          $ref: "#/components/schemas/ApplicationSettings"
+          description: Mail secrets are returned as `********` when configured.
+        status:
+          type: string
+          enum: [active, disabled]
+
+    MailSettings:
+      type: object
+      properties:
+        provider:
+          type: string
+          enum: [log, sendgrid, smtp]
+          default: log
+          description: Per-application mail transport. `log` prints messages to server logs (also the process fallback via `mail.driver`).
+        from_email:
+          type: string
+          format: email
+        from_name:
+          type: string
+        sendgrid:
+          $ref: "#/components/schemas/SendGridSettings"
+        smtp:
+          $ref: "#/components/schemas/SMTPSettings"
+
+    SendGridSettings:
+      type: object
+      properties:
+        api_key:
+          type: string
+          format: password
+          description: SendGrid API key. Write-only. Responses return `********` when a key is stored.
+
+    SMTPSettings:
+      type: object
+      properties:
+        host:
+          type: string
+          example: smtp.example.com
+        port:
+          type: integer
+          minimum: 1
+          maximum: 65535
+          example: 587
+          description: Use 587 with `tls: true` for STARTTLS, or 465 with `tls: true` for implicit TLS.
+        username:
+          type: string
+        password:
+          type: string
+          format: password
+          description: SMTP password. Write-only. Responses return `********` when a password is stored.
+        tls:
+          type: boolean
+          description: When true, port 465 uses implicit TLS and other ports use STARTTLS.
+        skip_verify:
+          type: boolean
+          default: false
+          description: Skip TLS certificate verification (lab/self-signed only).
