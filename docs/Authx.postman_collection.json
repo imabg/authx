@@ -1,0 +1,1894 @@
+{
+  "info": {
+    "name": "Authx",
+    "description": "Authx HTTP API (Collection v2.1).\n\n**Typical flow:** Admin -> Create application (password) -> copy `client_id` / `client_secret` into collection variables -> Auth -> Me.\n\n**Auth headers**\n- Auth and Me (`/api/v1/auth*`, `/api/v1/me`): `X-Authx-Client-Id` + `X-Authx-Client-Secret`. Me also needs `Authorization: Bearer <access_token>`.\n- Admin (`/api/v1/admin/*`): `X-Authx-Admin-Key` only (value of `admin_api_key` in server config).\n- Health and Docs: no auth.\n\nCreate-application and authenticate/refresh test scripts write `applicationId`, `clientId`, `clientSecret`, `accessToken`, `refreshToken`, and `userId` when the response includes them.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "adminKey",
+      "value": "dev-admin-key"
+    },
+    {
+      "key": "clientId",
+      "value": ""
+    },
+    {
+      "key": "clientSecret",
+      "value": ""
+    },
+    {
+      "key": "accessToken",
+      "value": ""
+    },
+    {
+      "key": "refreshToken",
+      "value": ""
+    },
+    {
+      "key": "applicationId",
+      "value": ""
+    },
+    {
+      "key": "userId",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/health",
+            "description": "No auth. Returns `{ \"ok\": true }`."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/api/health"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "11111111-1111-1111-1111-111111111111"
+                }
+              ],
+              "body": "{\n  \"ok\": true\n}\n"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "description": "Application-credential routes. All require `X-Authx-Client-Id` and `X-Authx-Client-Secret`. Signup and login share `POST /api/v1/auth`; the application's `auth_method` selects password, OTP, or magic link.",
+      "item": [
+        {
+          "name": "Sign up or log in (password)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Authx-Client-Id",
+                "value": "{{clientId}}"
+              },
+              {
+                "key": "X-Authx-Client-Secret",
+                "value": "{{clientSecret}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/auth",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"ValidPass1\",\n  \"first_name\": \"Ada\",\n  \"last_name\": \"Lovelace\"\n}\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Single signup-or-login endpoint. Required fields depend on the application's `auth_method`.\n\n**password** — `email` + `password`. Optional `first_name` / `last_name` on signup. New password users have `email_verified: false` until OTP or magic-link verify.\n\n**otp** — first call with `email` only returns `challenge_sent`. Complete with `email` + `code`. Completing OTP sets `email_verified: true`.\n\n**magic_link** — first call with `email` only returns `challenge_sent`. Complete with `token` (and optionally `email`). Completing the link sets `email_verified: true`.\n\nWrong fields for the configured method return `400` `invalid_payload_for_auth_method`. Invalid email format returns `400` `validation_error`. Domains in `settings.blocked_domains` return `403` `email_domain_blocked` (also on refresh and `/me`).\n\nRequires `X-Authx-Client-Id` and `X-Authx-Client-Secret`."
+          },
+          "response": [
+            {
+              "name": "200 authenticated",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "X-Authx-Client-Id",
+                    "value": "{{clientId}}"
+                  },
+                  {
+                    "key": "X-Authx-Client-Secret",
+                    "value": "{{clientSecret}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/auth",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"ValidPass1\",\n  \"first_name\": \"Ada\",\n  \"last_name\": \"Lovelace\"\n}\n",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "description": "Single signup-or-login endpoint. Required fields depend on the application's `auth_method`.\n\n**password** — `email` + `password`. Optional `first_name` / `last_name` on signup. New password users have `email_verified: false` until OTP or magic-link verify.\n\n**otp** — first call with `email` only returns `challenge_sent`. Complete with `email` + `code`. Completing OTP sets `email_verified: true`.\n\n**magic_link** — first call with `email` only returns `challenge_sent`. Complete with `token` (and optionally `email`). Completing the link sets `email_verified: true`.\n\nWrong fields for the configured method return `400` `invalid_payload_for_auth_method`. Invalid email format returns `400` `validation_error`. Domains in `settings.blocked_domains` return `403` `email_domain_blocked` (also on refresh and `/me`).\n\nRequires `X-Authx-Client-Id` and `X-Authx-Client-Secret`."
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "11111111-1111-1111-1111-111111111111"
+                }
+              ],
+              "body": "{\n  \"status\": \"authenticated\",\n  \"access_token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n  \"refresh_token\": \"opaque-refresh-token\",\n  \"expires_in\": 900,\n  \"token_type\": \"Bearer\",\n  \"user\": {\n    \"id\": \"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa\",\n    \"application_id\": \"dddddddd-dddd-dddd-dddd-dddddddddddd\",\n    \"email\": \"user@example.com\",\n    \"first_name\": \"Ada\",\n    \"last_name\": \"Lovelace\",\n    \"signup_method\": \"password\",\n    \"email_verified\": false,\n    \"status\": \"active\",\n    \"creation_timestamp\": \"2026-08-21T00:00:00Z\",\n    \"updated_timestamp\": \"2026-08-21T00:00:00Z\"\n  }\n}\n"
+            },
+            {
+              "name": "400 invalid payload for auth method",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "X-Authx-Client-Id",
+                    "value": "{{clientId}}"
+                  },
+                  {
+                    "key": "X-Authx-Client-Secret",
+                    "value": "{{clientSecret}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/auth",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"ValidPass1\",\n  \"first_name\": \"Ada\",\n  \"last_name\": \"Lovelace\"\n}\n",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "description": "Single signup-or-login endpoint. Required fields depend on the application's `auth_method`.\n\n**password** — `email` + `password`. Optional `first_name` / `last_name` on signup. New password users have `email_verified: false` until OTP or magic-link verify.\n\n**otp** — first call with `email` only returns `challenge_sent`. Complete with `email` + `code`. Completing OTP sets `email_verified: true`.\n\n**magic_link** — first call with `email` only returns `challenge_sent`. Complete with `token` (and optionally `email`). Completing the link sets `email_verified: true`.\n\nWrong fields for the configured method return `400` `invalid_payload_for_auth_method`. Invalid email format returns `400` `validation_error`. Domains in `settings.blocked_domains` return `403` `email_domain_blocked` (also on refresh and `/me`).\n\nRequires `X-Authx-Client-Id` and `X-Authx-Client-Secret`."
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "11111111-1111-1111-1111-111111111111"
+                }
+              ],
+              "body": "{\n  \"code\": \"invalid_payload_for_auth_method\",\n  \"error\": \"payload does not match application auth method\"\n}\n"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const json = pm.response.json();",
+                  "  if (json.access_token) pm.collectionVariables.set('accessToken', json.access_token);",
+                  "  if (json.refresh_token) pm.collectionVariables.set('refreshToken', json.refresh_token);",
+                  "  if (json.user && json.user.id) pm.collectionVariables.set('userId', json.user.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Request OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Authx-Client-Id",
+                "value": "{{clientId}}"
+              },
+              {
+                "key": "X-Authx-Client-Secret",
+                "value": "{{clientSecret}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/auth",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\"\n}\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "OTP start. Application `auth_method` must be `otp`. Returns `challenge_sent`. Requires `X-Authx-Client-Id` and `X-Authx-Client-Secret`."
+          },
+          "response": [
+            {
+              "name": "200 challenge_sent",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "X-Authx-Client-Id",
+                    "value": "{{clientId}}"
+                  },
+                  {
+                    "key": "X-Authx-Client-Secret",
+                    "value": "{{clientSecret}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/auth",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"user@example.com\"\n}\n",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "description": "OTP start. Application `auth_method` must be `otp`. Returns `challenge_sent`. Requires `X-Authx-Client-Id` and `X-Authx-Client-Secret`."
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "11111111-1111-1111-1111-111111111111"
+                }
+              ],
+              "body": "{\n  \"status\": \"challenge_sent\",\n  \"challenge_type\": \"otp\",\n  \"expires_in\": 300\n}\n"
+            }
+          ]
+        },
+        {
+          "name": "Complete OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Authx-Client-Id",
+                "value": "{{clientId}}"
+              },
+              {
+                "key": "X-Authx-Client-Secret",
+                "value": "{{clientSecret}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/auth",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"code\": \"123456\"\n}\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "OTP verify. Completing OTP proves inbox ownership and sets `email_verified: true`. Requires `X-Authx-Client-Id` and `X-Authx-Client-Secret`."
+          },
+          "response": [
+            {
+              "name": "200 authenticated",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "X-Authx-Client-Id",
+                    "value": "{{clientId}}"
+                  },
+                  {
+                    "key": "X-Authx-Client-Secret",
+                    "value": "{{clientSecret}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/auth",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"user@example.com\",\n  \"code\": \"123456\"\n}\n",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "description": "OTP verify. Completing OTP proves inbox ownership and sets `email_verified: true`. Requires `X-Authx-Client-Id` and `X-Authx-Client-Secret`."
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "11111111-1111-1111-1111-111111111111"
+                }
+              ],
+              "body": "{\n  \"status\": \"authenticated\",\n  \"access_token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n  \"refresh_token\": \"opaque-refresh-token\",\n  \"expires_in\": 900,\n  \"token_type\": \"Bearer\",\n  \"user\": {\n    \"id\": \"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa\",\n    \"application_id\": \"dddddddd-dddd-dddd-dddd-dddddddddddd\",\n    \"email\": \"user@example.com\",\n    \"first_name\": \"Ada\",\n    \"last_name\": \"Lovelace\",\n    \"signup_method\": \"otp\",\n    \"email_verified\": true,\n    \"status\": \"active\",\n    \"creation_timestamp\": \"2026-08-21T00:00:00Z\",\n    \"updated_timestamp\": \"2026-08-21T00:00:00Z\",\n    \"email_verified_at\": \"2026-08-21T00:01:00Z\"\n  }\n}\n"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const json = pm.response.json();",
+                  "  if (json.access_token) pm.collectionVariables.set('accessToken', json.access_token);",
+                  "  if (json.refresh_token) pm.collectionVariables.set('refreshToken', json.refresh_token);",
+                  "  if (json.user && json.user.id) pm.collectionVariables.set('userId', json.user.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Request magic link",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Authx-Client-Id",
+                "value": "{{clientId}}"
+              },
+              {
+                "key": "X-Authx-Client-Secret",
+                "value": "{{clientSecret}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/auth",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\"\n}\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Magic-link start. Application `auth_method` must be `magic_link`. Returns `challenge_sent`. The consuming app hosts `/auth/callback` and posts the token back. Requires `X-Authx-Client-Id` and `X-Authx-Client-Secret`."
+          },
+          "response": [
+            {
+              "name": "200 challenge_sent",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "X-Authx-Client-Id",
+                    "value": "{{clientId}}"
+                  },
+                  {
+                    "key": "X-Authx-Client-Secret",
+                    "value": "{{clientSecret}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/auth",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"user@example.com\"\n}\n",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "description": "Magic-link start. Application `auth_method` must be `magic_link`. Returns `challenge_sent`. The consuming app hosts `/auth/callback` and posts the token back. Requires `X-Authx-Client-Id` and `X-Authx-Client-Secret`."
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "11111111-1111-1111-1111-111111111111"
+                }
+              ],
+              "body": "{\n  \"status\": \"challenge_sent\",\n  \"challenge_type\": \"magic_link\",\n  \"expires_in\": 900\n}\n"
+            }
+          ]
+        },
+        {
+          "name": "Complete magic link",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Authx-Client-Id",
+                "value": "{{clientId}}"
+              },
+              {
+                "key": "X-Authx-Client-Secret",
+                "value": "{{clientSecret}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/auth",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"token\": \"OPAQUE_TOKEN_FROM_LINK\"\n}\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Magic-link verify. Completing the link sets `email_verified: true`. Requires `X-Authx-Client-Id` and `X-Authx-Client-Secret`."
+          },
+          "response": [
+            {
+              "name": "200 authenticated",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "X-Authx-Client-Id",
+                    "value": "{{clientId}}"
+                  },
+                  {
+                    "key": "X-Authx-Client-Secret",
+                    "value": "{{clientSecret}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/auth",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"user@example.com\",\n  \"token\": \"OPAQUE_TOKEN_FROM_LINK\"\n}\n",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "description": "Magic-link verify. Completing the link sets `email_verified: true`. Requires `X-Authx-Client-Id` and `X-Authx-Client-Secret`."
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "11111111-1111-1111-1111-111111111111"
+                }
+              ],
+              "body": "{\n  \"status\": \"authenticated\",\n  \"access_token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n  \"refresh_token\": \"opaque-refresh-token\",\n  \"expires_in\": 900,\n  \"token_type\": \"Bearer\",\n  \"user\": {\n    \"id\": \"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa\",\n    \"application_id\": \"dddddddd-dddd-dddd-dddd-dddddddddddd\",\n    \"email\": \"user@example.com\",\n    \"first_name\": \"Ada\",\n    \"last_name\": \"Lovelace\",\n    \"signup_method\": \"magic_link\",\n    \"email_verified\": true,\n    \"status\": \"active\",\n    \"creation_timestamp\": \"2026-08-21T00:00:00Z\",\n    \"updated_timestamp\": \"2026-08-21T00:00:00Z\",\n    \"email_verified_at\": \"2026-08-21T00:01:00Z\"\n  }\n}\n"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const json = pm.response.json();",
+                  "  if (json.access_token) pm.collectionVariables.set('accessToken', json.access_token);",
+                  "  if (json.refresh_token) pm.collectionVariables.set('refreshToken', json.refresh_token);",
+                  "  if (json.user && json.user.id) pm.collectionVariables.set('userId', json.user.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Refresh",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Authx-Client-Id",
+                "value": "{{clientId}}"
+              },
+              {
+                "key": "X-Authx-Client-Secret",
+                "value": "{{clientSecret}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/auth/refresh",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"{{refreshToken}}\"\n}\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Rotates the refresh token and returns a new access/refresh pair. Blocked-domain users receive `403` `email_domain_blocked`. Requires `X-Authx-Client-Id` and `X-Authx-Client-Secret`."
+          },
+          "response": [
+            {
+              "name": "200 authenticated",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "X-Authx-Client-Id",
+                    "value": "{{clientId}}"
+                  },
+                  {
+                    "key": "X-Authx-Client-Secret",
+                    "value": "{{clientSecret}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/auth/refresh",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"refresh_token\": \"{{refreshToken}}\"\n}\n",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "description": "Rotates the refresh token and returns a new access/refresh pair. Blocked-domain users receive `403` `email_domain_blocked`. Requires `X-Authx-Client-Id` and `X-Authx-Client-Secret`."
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "11111111-1111-1111-1111-111111111111"
+                }
+              ],
+              "body": "{\n  \"status\": \"authenticated\",\n  \"access_token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n  \"refresh_token\": \"opaque-refresh-token\",\n  \"expires_in\": 900,\n  \"token_type\": \"Bearer\",\n  \"user\": {\n    \"id\": \"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa\",\n    \"application_id\": \"dddddddd-dddd-dddd-dddd-dddddddddddd\",\n    \"email\": \"user@example.com\",\n    \"first_name\": \"Ada\",\n    \"last_name\": \"Lovelace\",\n    \"signup_method\": \"password\",\n    \"email_verified\": false,\n    \"status\": \"active\",\n    \"creation_timestamp\": \"2026-08-21T00:00:00Z\",\n    \"updated_timestamp\": \"2026-08-21T00:00:00Z\"\n  }\n}\n"
+            },
+            {
+              "name": "403 email_domain_blocked",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "X-Authx-Client-Id",
+                    "value": "{{clientId}}"
+                  },
+                  {
+                    "key": "X-Authx-Client-Secret",
+                    "value": "{{clientSecret}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/auth/refresh",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"refresh_token\": \"{{refreshToken}}\"\n}\n",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "description": "Rotates the refresh token and returns a new access/refresh pair. Blocked-domain users receive `403` `email_domain_blocked`. Requires `X-Authx-Client-Id` and `X-Authx-Client-Secret`."
+              },
+              "status": "Forbidden",
+              "code": 403,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "11111111-1111-1111-1111-111111111111"
+                }
+              ],
+              "body": "{\n  \"code\": \"email_domain_blocked\",\n  \"error\": \"email domain is not allowed\"\n}\n"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const json = pm.response.json();",
+                  "  if (json.access_token) pm.collectionVariables.set('accessToken', json.access_token);",
+                  "  if (json.refresh_token) pm.collectionVariables.set('refreshToken', json.refresh_token);",
+                  "  if (json.user && json.user.id) pm.collectionVariables.set('userId', json.user.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Authx-Client-Id",
+                "value": "{{clientId}}"
+              },
+              {
+                "key": "X-Authx-Client-Secret",
+                "value": "{{clientSecret}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/auth/logout",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"{{refreshToken}}\"\n}\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Revokes the given refresh token. Requires application credentials even though the body only carries the token."
+          },
+          "response": [
+            {
+              "name": "200 logged_out",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "X-Authx-Client-Id",
+                    "value": "{{clientId}}"
+                  },
+                  {
+                    "key": "X-Authx-Client-Secret",
+                    "value": "{{clientSecret}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/auth/logout",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"refresh_token\": \"{{refreshToken}}\"\n}\n",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "description": "Revokes the given refresh token. Requires application credentials even though the body only carries the token."
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "11111111-1111-1111-1111-111111111111"
+                }
+              ],
+              "body": "{\n  \"status\": \"logged_out\"\n}\n"
+            }
+          ]
+        },
+        {
+          "name": "Validation (400 invalid email)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Authx-Client-Id",
+                "value": "{{clientId}}"
+              },
+              {
+                "key": "X-Authx-Client-Secret",
+                "value": "{{clientSecret}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/auth",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"not-an-email\",\n  \"password\": \"ValidPass1\"\n}\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Documented **400** example. Emails must be RFC-ish (`local@domain.tld`). Invalid format returns `400` with `code: validation_error` and `error: invalid request`.\n\nRequires `X-Authx-Client-Id` and `X-Authx-Client-Secret`."
+          },
+          "description": "Documented 400 example. Send a non-RFC email to see `validation_error`.",
+          "response": [
+            {
+              "name": "400 validation_error",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "X-Authx-Client-Id",
+                    "value": "{{clientId}}"
+                  },
+                  {
+                    "key": "X-Authx-Client-Secret",
+                    "value": "{{clientSecret}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/auth",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"not-an-email\",\n  \"password\": \"ValidPass1\"\n}\n",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "description": "Documented **400** example. Emails must be RFC-ish (`local@domain.tld`). Invalid format returns `400` with `code: validation_error` and `error: invalid request`.\n\nRequires `X-Authx-Client-Id` and `X-Authx-Client-Secret`."
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "11111111-1111-1111-1111-111111111111"
+                }
+              ],
+              "body": "{\n  \"code\": \"validation_error\",\n  \"error\": \"invalid request\"\n}\n"
+            }
+          ]
+        },
+        {
+          "name": "Blocked domain (403 email_domain_blocked)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Authx-Client-Id",
+                "value": "{{clientId}}"
+              },
+              {
+                "key": "X-Authx-Client-Secret",
+                "value": "{{clientSecret}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/auth",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@blocked.com\",\n  \"password\": \"ValidPass1\"\n}\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Documented **403** `email_domain_blocked` example. Use after PATCHing the application with `settings.blocked_domains: [\"blocked.com\"]`.\n\nAuth compares the domain after `@` case-insensitively (`user@blocked.com` → `blocked.com`). The same code is returned on refresh and on `/api/v1/me` if the user's email domain is later added to the blocklist.\n\nSample error body:\n```json\n{\n  \"code\": \"email_domain_blocked\",\n  \"error\": \"email domain is not allowed\"\n}\n```\n\nRequires `X-Authx-Client-Id` and `X-Authx-Client-Secret`."
+          },
+          "description": "Documented 403 example. Requires `blocked.com` on the application's `settings.blocked_domains`.",
+          "response": [
+            {
+              "name": "403 email_domain_blocked",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "X-Authx-Client-Id",
+                    "value": "{{clientId}}"
+                  },
+                  {
+                    "key": "X-Authx-Client-Secret",
+                    "value": "{{clientSecret}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/auth",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"user@blocked.com\",\n  \"password\": \"ValidPass1\"\n}\n",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "description": "Documented **403** `email_domain_blocked` example. Use after PATCHing the application with `settings.blocked_domains: [\"blocked.com\"]`.\n\nAuth compares the domain after `@` case-insensitively (`user@blocked.com` → `blocked.com`). The same code is returned on refresh and on `/api/v1/me` if the user's email domain is later added to the blocklist.\n\nSample error body:\n```json\n{\n  \"code\": \"email_domain_blocked\",\n  \"error\": \"email domain is not allowed\"\n}\n```\n\nRequires `X-Authx-Client-Id` and `X-Authx-Client-Secret`."
+              },
+              "status": "Forbidden",
+              "code": 403,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "11111111-1111-1111-1111-111111111111"
+                }
+              ],
+              "body": "{\n  \"code\": \"email_domain_blocked\",\n  \"error\": \"email domain is not allowed\"\n}\n"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Me",
+      "description": "Authenticated user routes. Require application client credentials **and** `Authorization: Bearer <access_token>`. Users whose email domain is in `settings.blocked_domains` receive `403` `email_domain_blocked`.",
+      "item": [
+        {
+          "name": "Get current user",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "X-Authx-Client-Id",
+                "value": "{{clientId}}"
+              },
+              {
+                "key": "X-Authx-Client-Secret",
+                "value": "{{clientSecret}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/me",
+            "description": "Returns the user bound to the access token. Token `app_id` must match the application credentials.\n\nBlocked-domain users get **403** `email_domain_blocked` on this route (same as PATCH `/me`).\n\nHeaders: `X-Authx-Client-Id`, `X-Authx-Client-Secret`, and `Authorization: Bearer {{accessToken}}`."
+          },
+          "response": [
+            {
+              "name": "200 current user",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  },
+                  {
+                    "key": "X-Authx-Client-Id",
+                    "value": "{{clientId}}"
+                  },
+                  {
+                    "key": "X-Authx-Client-Secret",
+                    "value": "{{clientSecret}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/me",
+                "description": "Returns the user bound to the access token. Token `app_id` must match the application credentials.\n\nBlocked-domain users get **403** `email_domain_blocked` on this route (same as PATCH `/me`).\n\nHeaders: `X-Authx-Client-Id`, `X-Authx-Client-Secret`, and `Authorization: Bearer {{accessToken}}`."
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "11111111-1111-1111-1111-111111111111"
+                }
+              ],
+              "body": "{\n  \"id\": \"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa\",\n  \"application_id\": \"dddddddd-dddd-dddd-dddd-dddddddddddd\",\n  \"email\": \"user@example.com\",\n  \"first_name\": \"Ada\",\n  \"last_name\": \"Lovelace\",\n  \"signup_method\": \"password\",\n  \"email_verified\": false,\n  \"status\": \"active\",\n  \"creation_timestamp\": \"2026-08-21T00:00:00Z\",\n  \"updated_timestamp\": \"2026-08-21T00:00:00Z\"\n}\n"
+            },
+            {
+              "name": "403 email_domain_blocked",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  },
+                  {
+                    "key": "X-Authx-Client-Id",
+                    "value": "{{clientId}}"
+                  },
+                  {
+                    "key": "X-Authx-Client-Secret",
+                    "value": "{{clientSecret}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/me",
+                "description": "Returns the user bound to the access token. Token `app_id` must match the application credentials.\n\nBlocked-domain users get **403** `email_domain_blocked` on this route (same as PATCH `/me`).\n\nHeaders: `X-Authx-Client-Id`, `X-Authx-Client-Secret`, and `Authorization: Bearer {{accessToken}}`."
+              },
+              "status": "Forbidden",
+              "code": 403,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "11111111-1111-1111-1111-111111111111"
+                }
+              ],
+              "body": "{\n  \"code\": \"email_domain_blocked\",\n  \"error\": \"email domain is not allowed\"\n}\n"
+            },
+            {
+              "name": "401 missing bearer",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  },
+                  {
+                    "key": "X-Authx-Client-Id",
+                    "value": "{{clientId}}"
+                  },
+                  {
+                    "key": "X-Authx-Client-Secret",
+                    "value": "{{clientSecret}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/me",
+                "description": "Returns the user bound to the access token. Token `app_id` must match the application credentials.\n\nBlocked-domain users get **403** `email_domain_blocked` on this route (same as PATCH `/me`).\n\nHeaders: `X-Authx-Client-Id`, `X-Authx-Client-Secret`, and `Authorization: Bearer {{accessToken}}`."
+              },
+              "status": "Unauthorized",
+              "code": 401,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "11111111-1111-1111-1111-111111111111"
+                }
+              ],
+              "body": "{\n  \"code\": \"unauthorized\",\n  \"error\": \"missing bearer token\"\n}\n"
+            }
+          ]
+        },
+        {
+          "name": "Update current user",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "X-Authx-Client-Id",
+                "value": "{{clientId}}"
+              },
+              {
+                "key": "X-Authx-Client-Secret",
+                "value": "{{clientSecret}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/me",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"first_name\": \"Grace\",\n  \"last_name\": \"Hopper\"\n}\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Partially updates the authenticated user's `first_name` and/or `last_name` (`first_name` max 25, `last_name` max 50).\n\nBlocked-domain users get **403** `email_domain_blocked` on this route too.\n\nHeaders: `X-Authx-Client-Id`, `X-Authx-Client-Secret`, and `Authorization: Bearer {{accessToken}}`."
+          },
+          "response": [
+            {
+              "name": "200 updated user",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  },
+                  {
+                    "key": "X-Authx-Client-Id",
+                    "value": "{{clientId}}"
+                  },
+                  {
+                    "key": "X-Authx-Client-Secret",
+                    "value": "{{clientSecret}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/me",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"first_name\": \"Grace\",\n  \"last_name\": \"Hopper\"\n}\n",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "description": "Partially updates the authenticated user's `first_name` and/or `last_name` (`first_name` max 25, `last_name` max 50).\n\nBlocked-domain users get **403** `email_domain_blocked` on this route too.\n\nHeaders: `X-Authx-Client-Id`, `X-Authx-Client-Secret`, and `Authorization: Bearer {{accessToken}}`."
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "11111111-1111-1111-1111-111111111111"
+                }
+              ],
+              "body": "{\n  \"id\": \"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa\",\n  \"application_id\": \"dddddddd-dddd-dddd-dddd-dddddddddddd\",\n  \"email\": \"user@example.com\",\n  \"first_name\": \"Grace\",\n  \"last_name\": \"Hopper\",\n  \"signup_method\": \"password\",\n  \"email_verified\": false,\n  \"status\": \"active\",\n  \"creation_timestamp\": \"2026-08-21T00:00:00Z\",\n  \"updated_timestamp\": \"2026-08-21T00:00:00Z\"\n}\n"
+            },
+            {
+              "name": "403 email_domain_blocked",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{accessToken}}"
+                  },
+                  {
+                    "key": "X-Authx-Client-Id",
+                    "value": "{{clientId}}"
+                  },
+                  {
+                    "key": "X-Authx-Client-Secret",
+                    "value": "{{clientSecret}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/me",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"first_name\": \"Grace\",\n  \"last_name\": \"Hopper\"\n}\n",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "description": "Partially updates the authenticated user's `first_name` and/or `last_name` (`first_name` max 25, `last_name` max 50).\n\nBlocked-domain users get **403** `email_domain_blocked` on this route too.\n\nHeaders: `X-Authx-Client-Id`, `X-Authx-Client-Secret`, and `Authorization: Bearer {{accessToken}}`."
+              },
+              "status": "Forbidden",
+              "code": 403,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "11111111-1111-1111-1111-111111111111"
+                }
+              ],
+              "body": "{\n  \"code\": \"email_domain_blocked\",\n  \"error\": \"email domain is not allowed\"\n}\n"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Admin applications",
+      "description": "Admin application CRUD. Header: `X-Authx-Admin-Key` only (no client credentials).",
+      "item": [
+        {
+          "name": "Create application (password)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Authx-Admin-Key",
+                "value": "{{adminKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/applications",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Acme\",\n  \"description\": \"Acme web app\",\n  \"settings\": {\n    \"auth_method\": \"password\",\n    \"signup_enabled\": true\n  }\n}\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Creates an application and returns `client_id` plus a one-time `client_secret`. Store the secret; it is not shown again. Omitted `settings` default to `auth_method: password` and signup enabled.\n\nThis request's test script saves `applicationId`, `clientId`, and `clientSecret` collection variables.\n\nRequires `X-Authx-Admin-Key`."
+          },
+          "response": [
+            {
+              "name": "201 created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "X-Authx-Admin-Key",
+                    "value": "{{adminKey}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/admin/applications",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Acme\",\n  \"description\": \"Acme web app\",\n  \"settings\": {\n    \"auth_method\": \"password\",\n    \"signup_enabled\": true\n  }\n}\n",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "description": "Creates an application and returns `client_id` plus a one-time `client_secret`. Store the secret; it is not shown again. Omitted `settings` default to `auth_method: password` and signup enabled.\n\nThis request's test script saves `applicationId`, `clientId`, and `clientSecret` collection variables.\n\nRequires `X-Authx-Admin-Key`."
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "11111111-1111-1111-1111-111111111111"
+                }
+              ],
+              "body": "{\n  \"id\": \"dddddddd-dddd-dddd-dddd-dddddddddddd\",\n  \"name\": \"Acme\",\n  \"description\": \"Acme web app\",\n  \"client_id\": \"app_demo\",\n  \"status\": \"active\",\n  \"settings\": {\n    \"signup_enabled\": true,\n    \"auth_method\": \"password\",\n    \"password\": {\n      \"min_length\": 8,\n      \"require_mixed_case\": true,\n      \"require_digit\": true\n    },\n    \"otp\": {\n      \"length\": 6,\n      \"ttl_seconds\": 300,\n      \"max_attempts\": 5\n    },\n    \"magic_link\": {\n      \"ttl_seconds\": 900\n    },\n    \"tokens\": {\n      \"access_ttl_seconds\": 900,\n      \"refresh_ttl_seconds\": 2592000\n    },\n    \"email_verification_required\": false,\n    \"blocked_domains\": [],\n    \"mail\": {\n      \"provider\": \"log\",\n      \"from_email\": \"\",\n      \"from_name\": \"\",\n      \"sendgrid\": {},\n      \"smtp\": {\n        \"host\": \"\",\n        \"port\": 0,\n        \"username\": \"\",\n        \"tls\": false,\n        \"skip_verify\": false\n      }\n    }\n  },\n  \"client_secret\": \"one-time-secret\"\n}\n"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const json = pm.response.json();",
+                  "  pm.collectionVariables.set('applicationId', json.id);",
+                  "  pm.collectionVariables.set('clientId', json.client_id);",
+                  "  pm.collectionVariables.set('clientSecret', json.client_secret);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create application (OTP + SendGrid)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Authx-Admin-Key",
+                "value": "{{adminKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/applications",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Acme OTP SendGrid\",\n  \"settings\": {\n    \"auth_method\": \"otp\",\n    \"signup_enabled\": true,\n    \"otp\": {\n      \"length\": 6,\n      \"ttl_seconds\": 300,\n      \"max_attempts\": 5\n    },\n    \"mail\": {\n      \"provider\": \"sendgrid\",\n      \"from_email\": \"noreply@acme.example\",\n      \"from_name\": \"Acme\",\n      \"sendgrid\": {\n        \"api_key\": \"SG.xxxxxxxx\"\n      }\n    }\n  }\n}\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Create an OTP application with SendGrid mail. `client_secret` is returned once. Requires `X-Authx-Admin-Key`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const json = pm.response.json();",
+                  "  pm.collectionVariables.set('applicationId', json.id);",
+                  "  pm.collectionVariables.set('clientId', json.client_id);",
+                  "  pm.collectionVariables.set('clientSecret', json.client_secret);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create application (OTP + SMTP)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Authx-Admin-Key",
+                "value": "{{adminKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/applications",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Acme OTP SMTP\",\n  \"settings\": {\n    \"auth_method\": \"otp\",\n    \"signup_enabled\": true,\n    \"mail\": {\n      \"provider\": \"smtp\",\n      \"from_email\": \"noreply@acme.example\",\n      \"from_name\": \"Acme\",\n      \"smtp\": {\n        \"host\": \"smtp.example.com\",\n        \"port\": 587,\n        \"username\": \"acme\",\n        \"password\": \"smtp-secret\",\n        \"tls\": true,\n        \"skip_verify\": false\n      }\n    }\n  }\n}\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Create an OTP application with SMTP mail (STARTTLS on 587). `client_secret` is returned once. Requires `X-Authx-Admin-Key`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const json = pm.response.json();",
+                  "  pm.collectionVariables.set('applicationId', json.id);",
+                  "  pm.collectionVariables.set('clientId', json.client_id);",
+                  "  pm.collectionVariables.set('clientSecret', json.client_secret);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create application (magic link)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Authx-Admin-Key",
+                "value": "{{adminKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/applications",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Acme Magic\",\n  \"settings\": {\n    \"auth_method\": \"magic_link\",\n    \"signup_enabled\": true\n  }\n}\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Create a magic-link application. Requires `X-Authx-Admin-Key`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const json = pm.response.json();",
+                  "  pm.collectionVariables.set('applicationId', json.id);",
+                  "  pm.collectionVariables.set('clientId', json.client_id);",
+                  "  pm.collectionVariables.set('clientSecret', json.client_secret);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create application (blocked domains)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Authx-Admin-Key",
+                "value": "{{adminKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/applications",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Acme\",\n  \"settings\": {\n    \"auth_method\": \"password\",\n    \"signup_enabled\": true,\n    \"blocked_domains\": [\n      \"blocked.com\",\n      \"evil.org\"\n    ]\n  }\n}\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Create a password application with an email domain blocklist. Auth from `user@blocked.com` then returns `403` `email_domain_blocked`. Requires `X-Authx-Admin-Key`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const json = pm.response.json();",
+                  "  pm.collectionVariables.set('applicationId', json.id);",
+                  "  pm.collectionVariables.set('clientId', json.client_id);",
+                  "  pm.collectionVariables.set('clientSecret', json.client_secret);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get application",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Authx-Admin-Key",
+                "value": "{{adminKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/applications/{{applicationId}}",
+            "description": "Returns the application including settings. Mail secrets are masked (`********`). `settings.blocked_domains` is the current blocklist (empty if none).\n\nRequires `X-Authx-Admin-Key`."
+          },
+          "response": [
+            {
+              "name": "200 application (secrets masked)",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "X-Authx-Admin-Key",
+                    "value": "{{adminKey}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/admin/applications/{{applicationId}}",
+                "description": "Returns the application including settings. Mail secrets are masked (`********`). `settings.blocked_domains` is the current blocklist (empty if none).\n\nRequires `X-Authx-Admin-Key`."
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "11111111-1111-1111-1111-111111111111"
+                }
+              ],
+              "body": "{\n  \"id\": \"dddddddd-dddd-dddd-dddd-dddddddddddd\",\n  \"name\": \"Acme\",\n  \"description\": \"Acme web app\",\n  \"client_id\": \"app_demo\",\n  \"status\": \"active\",\n  \"settings\": {\n    \"signup_enabled\": true,\n    \"auth_method\": \"password\",\n    \"password\": {\n      \"min_length\": 8,\n      \"require_mixed_case\": true,\n      \"require_digit\": true\n    },\n    \"otp\": {\n      \"length\": 6,\n      \"ttl_seconds\": 300,\n      \"max_attempts\": 5\n    },\n    \"magic_link\": {\n      \"ttl_seconds\": 900\n    },\n    \"tokens\": {\n      \"access_ttl_seconds\": 900,\n      \"refresh_ttl_seconds\": 2592000\n    },\n    \"email_verification_required\": false,\n    \"blocked_domains\": [\n      \"blocked.com\",\n      \"evil.org\"\n    ],\n    \"mail\": {\n      \"provider\": \"sendgrid\",\n      \"from_email\": \"noreply@acme.example\",\n      \"from_name\": \"Acme\",\n      \"sendgrid\": {\n        \"api_key\": \"********\"\n      },\n      \"smtp\": {\n        \"host\": \"\",\n        \"port\": 0,\n        \"username\": \"\",\n        \"tls\": false,\n        \"skip_verify\": false\n      }\n    }\n  }\n}\n"
+            },
+            {
+              "name": "404 not found",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "X-Authx-Admin-Key",
+                    "value": "{{adminKey}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/admin/applications/{{applicationId}}",
+                "description": "Returns the application including settings. Mail secrets are masked (`********`). `settings.blocked_domains` is the current blocklist (empty if none).\n\nRequires `X-Authx-Admin-Key`."
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "11111111-1111-1111-1111-111111111111"
+                }
+              ],
+              "body": "{\n  \"code\": \"not_found\",\n  \"error\": \"application not found\"\n}\n"
+            }
+          ]
+        },
+        {
+          "name": "Update application (OTP settings)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Authx-Admin-Key",
+                "value": "{{adminKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/applications/{{applicationId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"settings\": {\n    \"otp\": {\n      \"length\": 8,\n      \"ttl_seconds\": 120,\n      \"max_attempts\": 5\n    }\n  }\n}\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Partial update of name, description, status, and settings.\n\n**Merge rules**\n- Nested settings are merged: omit a field to keep the stored value.\n- `blocked_domains`: sending a list **replaces** the stored list; omitting the field keeps the current list. `[]` allows all domains.\n- Mail secrets (SendGrid `api_key`, SMTP `password`) are never returned in plaintext. GET/PATCH responses show `********` when a secret is stored.\n- Posting `********` (or omitting the secret) **does not overwrite** the stored secret.\n\nRequires `X-Authx-Admin-Key`."
+          },
+          "response": [
+            {
+              "name": "200 updated",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "X-Authx-Admin-Key",
+                    "value": "{{adminKey}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/admin/applications/{{applicationId}}",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"settings\": {\n    \"otp\": {\n      \"length\": 8,\n      \"ttl_seconds\": 120,\n      \"max_attempts\": 5\n    }\n  }\n}\n",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "description": "Partial update of name, description, status, and settings.\n\n**Merge rules**\n- Nested settings are merged: omit a field to keep the stored value.\n- `blocked_domains`: sending a list **replaces** the stored list; omitting the field keeps the current list. `[]` allows all domains.\n- Mail secrets (SendGrid `api_key`, SMTP `password`) are never returned in plaintext. GET/PATCH responses show `********` when a secret is stored.\n- Posting `********` (or omitting the secret) **does not overwrite** the stored secret.\n\nRequires `X-Authx-Admin-Key`."
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "11111111-1111-1111-1111-111111111111"
+                }
+              ],
+              "body": "{\n  \"id\": \"dddddddd-dddd-dddd-dddd-dddddddddddd\",\n  \"name\": \"Acme\",\n  \"description\": \"Acme web app\",\n  \"client_id\": \"app_demo\",\n  \"status\": \"active\",\n  \"settings\": {\n    \"signup_enabled\": true,\n    \"auth_method\": \"password\",\n    \"password\": {\n      \"min_length\": 8,\n      \"require_mixed_case\": true,\n      \"require_digit\": true\n    },\n    \"otp\": {\n      \"length\": 6,\n      \"ttl_seconds\": 300,\n      \"max_attempts\": 5\n    },\n    \"magic_link\": {\n      \"ttl_seconds\": 900\n    },\n    \"tokens\": {\n      \"access_ttl_seconds\": 900,\n      \"refresh_ttl_seconds\": 2592000\n    },\n    \"email_verification_required\": false,\n    \"blocked_domains\": [\n      \"blocked.com\",\n      \"evil.org\"\n    ],\n    \"mail\": {\n      \"provider\": \"sendgrid\",\n      \"from_email\": \"noreply@acme.example\",\n      \"from_name\": \"Acme\",\n      \"sendgrid\": {\n        \"api_key\": \"********\"\n      },\n      \"smtp\": {\n        \"host\": \"\",\n        \"port\": 0,\n        \"username\": \"\",\n        \"tls\": false,\n        \"skip_verify\": false\n      }\n    }\n  }\n}\n"
+            }
+          ]
+        },
+        {
+          "name": "Update application (SendGrid)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Authx-Admin-Key",
+                "value": "{{adminKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/applications/{{applicationId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"settings\": {\n    \"mail\": {\n      \"provider\": \"sendgrid\",\n      \"from_email\": \"noreply@acme.example\",\n      \"from_name\": \"Acme\",\n      \"sendgrid\": {\n        \"api_key\": \"SG.xxxxxxxx\"\n      }\n    }\n  }\n}\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Partial update of name, description, status, and settings.\n\n**Merge rules**\n- Nested settings are merged: omit a field to keep the stored value.\n- `blocked_domains`: sending a list **replaces** the stored list; omitting the field keeps the current list. `[]` allows all domains.\n- Mail secrets (SendGrid `api_key`, SMTP `password`) are never returned in plaintext. GET/PATCH responses show `********` when a secret is stored.\n- Posting `********` (or omitting the secret) **does not overwrite** the stored secret.\n\nRequires `X-Authx-Admin-Key`."
+          }
+        },
+        {
+          "name": "Update application (SMTP)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Authx-Admin-Key",
+                "value": "{{adminKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/applications/{{applicationId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"settings\": {\n    \"mail\": {\n      \"provider\": \"smtp\",\n      \"from_email\": \"noreply@acme.example\",\n      \"from_name\": \"Acme\",\n      \"smtp\": {\n        \"host\": \"smtp.example.com\",\n        \"port\": 587,\n        \"username\": \"acme\",\n        \"password\": \"smtp-secret\",\n        \"tls\": true,\n        \"skip_verify\": false\n      }\n    }\n  }\n}\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Partial update of name, description, status, and settings.\n\n**Merge rules**\n- Nested settings are merged: omit a field to keep the stored value.\n- `blocked_domains`: sending a list **replaces** the stored list; omitting the field keeps the current list. `[]` allows all domains.\n- Mail secrets (SendGrid `api_key`, SMTP `password`) are never returned in plaintext. GET/PATCH responses show `********` when a secret is stored.\n- Posting `********` (or omitting the secret) **does not overwrite** the stored secret.\n\nRequires `X-Authx-Admin-Key`."
+          }
+        },
+        {
+          "name": "Update application (blocked domains)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Authx-Admin-Key",
+                "value": "{{adminKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/applications/{{applicationId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"settings\": {\n    \"blocked_domains\": [\n      \"blocked.com\",\n      \"evil.org\"\n    ]\n  }\n}\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Partial update of name, description, status, and settings.\n\n**Merge rules**\n- Nested settings are merged: omit a field to keep the stored value.\n- `blocked_domains`: sending a list **replaces** the stored list; omitting the field keeps the current list. `[]` allows all domains.\n- Mail secrets (SendGrid `api_key`, SMTP `password`) are never returned in plaintext. GET/PATCH responses show `********` when a secret is stored.\n- Posting `********` (or omitting the secret) **does not overwrite** the stored secret.\n\nRequires `X-Authx-Admin-Key`.\n\nThis body **replaces** the stored `blocked_domains` list. Omit the field to keep the current list."
+          }
+        },
+        {
+          "name": "Update application (combined settings)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Authx-Admin-Key",
+                "value": "{{adminKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/applications/{{applicationId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"settings\": {\n    \"otp\": {\n      \"length\": 8,\n      \"ttl_seconds\": 120,\n      \"max_attempts\": 5\n    },\n    \"blocked_domains\": [\n      \"blocked.com\",\n      \"evil.org\"\n    ],\n    \"mail\": {\n      \"provider\": \"sendgrid\",\n      \"from_email\": \"noreply@acme.example\",\n      \"from_name\": \"Acme\",\n      \"sendgrid\": {\n        \"api_key\": \"********\"\n      }\n    }\n  }\n}\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Partial update of name, description, status, and settings.\n\n**Merge rules**\n- Nested settings are merged: omit a field to keep the stored value.\n- `blocked_domains`: sending a list **replaces** the stored list; omitting the field keeps the current list. `[]` allows all domains.\n- Mail secrets (SendGrid `api_key`, SMTP `password`) are never returned in plaintext. GET/PATCH responses show `********` when a secret is stored.\n- Posting `********` (or omitting the secret) **does not overwrite** the stored secret.\n\nRequires `X-Authx-Admin-Key`.\n\nCombined example: update OTP, replace `blocked_domains`, and post `********` for the SendGrid key so the stored secret is left unchanged."
+          },
+          "description": "OTP + replace `blocked_domains` + post `********` so the SendGrid key is not overwritten."
+        }
+      ]
+    },
+    {
+      "name": "Admin users",
+      "description": "Admin user updates. Header: `X-Authx-Admin-Key` only.",
+      "item": [
+        {
+          "name": "Update user",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Authx-Admin-Key",
+                "value": "{{adminKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/users/{{userId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"first_name\": \"Grace\",\n  \"last_name\": \"Hopper\"\n}\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Partially updates `first_name` and/or `last_name` for any user (`first_name` max 25, `last_name` max 50). Requires `X-Authx-Admin-Key`. Does not require application client credentials."
+          },
+          "response": [
+            {
+              "name": "200 updated user",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "X-Authx-Admin-Key",
+                    "value": "{{adminKey}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/admin/users/{{userId}}",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"first_name\": \"Grace\",\n  \"last_name\": \"Hopper\"\n}\n",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "description": "Partially updates `first_name` and/or `last_name` for any user (`first_name` max 25, `last_name` max 50). Requires `X-Authx-Admin-Key`. Does not require application client credentials."
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "11111111-1111-1111-1111-111111111111"
+                }
+              ],
+              "body": "{\n  \"id\": \"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa\",\n  \"application_id\": \"dddddddd-dddd-dddd-dddd-dddddddddddd\",\n  \"email\": \"user@example.com\",\n  \"first_name\": \"Grace\",\n  \"last_name\": \"Hopper\",\n  \"signup_method\": \"password\",\n  \"email_verified\": false,\n  \"status\": \"active\",\n  \"creation_timestamp\": \"2026-08-21T00:00:00Z\",\n  \"updated_timestamp\": \"2026-08-21T00:00:00Z\"\n}\n"
+            },
+            {
+              "name": "404 not found",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "X-Authx-Admin-Key",
+                    "value": "{{adminKey}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/admin/users/{{userId}}",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"first_name\": \"Grace\",\n  \"last_name\": \"Hopper\"\n}\n",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "description": "Partially updates `first_name` and/or `last_name` for any user (`first_name` max 25, `last_name` max 50). Requires `X-Authx-Admin-Key`. Does not require application client credentials."
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "11111111-1111-1111-1111-111111111111"
+                }
+              ],
+              "body": "{\n  \"code\": \"not_found\",\n  \"error\": \"user not found\"\n}\n"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Docs",
+      "item": [
+        {
+          "name": "Swagger UI",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/docs",
+            "description": "HTML Swagger UI. No auth."
+          }
+        },
+        {
+          "name": "OpenAPI spec",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/docs/openapi.yaml",
+            "description": "OpenAPI 3 YAML. No auth."
+          }
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "if (pm.response.code === 201 || pm.response.code === 200) {",
+          "  try {",
+          "    const json = pm.response.json();",
+          "    if (json.client_id) pm.collectionVariables.set('clientId', json.client_id);",
+          "    if (json.client_secret) pm.collectionVariables.set('clientSecret', json.client_secret);",
+          "    if (json.id && json.client_id) pm.collectionVariables.set('applicationId', json.id);",
+          "    if (json.access_token) pm.collectionVariables.set('accessToken', json.access_token);",
+          "    if (json.refresh_token) pm.collectionVariables.set('refreshToken', json.refresh_token);",
+          "    if (json.user && json.user.id) pm.collectionVariables.set('userId', json.user.id);",
+          "  } catch (e) {}",
+          "}"
+        ]
+      }
+    }
+  ]
+}
