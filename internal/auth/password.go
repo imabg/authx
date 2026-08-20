@@ -3,9 +3,9 @@ package auth
 import (
 	"errors"
 	"fmt"
-	netmail "net/mail"
-	"strings"
 	"unicode"
+
+	"github.com/imabg/authx/internal/validate"
 )
 
 var (
@@ -57,25 +57,5 @@ func ValidatePassword(password string, policy PasswordPolicy) error {
 }
 
 func LooksLikeEmail(email string) bool {
-	email = strings.TrimSpace(email)
-	if email == "" {
-		return false
-	}
-	addr, err := netmail.ParseAddress(email)
-	if err != nil {
-		return false
-	}
-	if !strings.EqualFold(addr.Address, email) {
-		return false
-	}
-	at := strings.LastIndex(addr.Address, "@")
-	if at <= 0 || at == len(addr.Address)-1 {
-		return false
-	}
-	local := addr.Address[:at]
-	domain := addr.Address[at+1:]
-	if local == "" || strings.ContainsAny(local, " \t\r\n") {
-		return false
-	}
-	return strings.Contains(domain, ".") && !strings.ContainsAny(domain, " \t\r\n")
+	return validate.LooksLikeEmail(email)
 }

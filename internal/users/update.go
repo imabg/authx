@@ -2,9 +2,7 @@ package users
 
 import (
 	"errors"
-	"fmt"
 	"strings"
-	"unicode/utf8"
 )
 
 const (
@@ -15,24 +13,28 @@ const (
 var ErrValidation = errors.New("user validation")
 
 type ProfileUpdate struct {
-	FirstName *string
-	LastName  *string
+	FirstName *string `json:"first_name" validate:"omitempty,runemax=25"`
+	LastName  *string `json:"last_name" validate:"omitempty,runemax=50"`
 }
 
 func ApplyProfileUpdate(user User, patch ProfileUpdate) (User, error) {
+	validated := ProfileUpdate{}
 	if patch.FirstName != nil {
 		v := strings.TrimSpace(*patch.FirstName)
-		if utf8.RuneCountInString(v) > MaxFirstNameLen {
-			return User{}, fmt.Errorf("%w: first_name must be at most %d characters", ErrValidation, MaxFirstNameLen)
-		}
-		user.FirstName = v
+		validated.FirstName = &v
 	}
 	if patch.LastName != nil {
 		v := strings.TrimSpace(*patch.LastName)
-		if utf8.RuneCountInString(v) > MaxLastNameLen {
-			return User{}, fmt.Errorf("%w: last_name must be at most %d characters", ErrValidation, MaxLastNameLen)
-		}
-		user.LastName = v
+		validated.LastName = &v
+	}
+	if err := validateProfileUpdate(validated); err != nil {
+		return User{}, err
+	}
+	if validated.FirstName != nil {
+		user.FirstName = *validated.FirstName
+	}
+	if validated.LastName != nil {
+		user.LastName = *validated.LastName
 	}
 	return user, nil
 }

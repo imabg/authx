@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"strings"
 
 	"github.com/google/uuid"
@@ -21,7 +20,7 @@ func NewService(repo IRepository) *Service {
 }
 
 type CreateInput struct {
-	Name        string
+	Name        string `validate:"required"`
 	Description string
 	Settings    Settings
 }
@@ -39,8 +38,8 @@ type UpdateInput struct {
 }
 
 func (s *Service) Create(ctx context.Context, input CreateInput) (CreatedApplication, error) {
-	if input.Name == "" {
-		return CreatedApplication{}, fmt.Errorf("name is required")
+	if err := validateCreateInput(input); err != nil {
+		return CreatedApplication{}, err
 	}
 	if input.Settings.AuthMethod == "" {
 		input.Settings.AuthMethod = AuthMethodPassword
@@ -98,8 +97,8 @@ func (s *Service) Update(ctx context.Context, id uuid.UUID, input UpdateInput) (
 	}
 	if input.Name != nil {
 		name := strings.TrimSpace(*input.Name)
-		if name == "" {
-			return Application{}, fmt.Errorf("name is required")
+		if err := validateUpdateName(name); err != nil {
+			return Application{}, err
 		}
 		existing.Name = name
 	}
@@ -108,12 +107,10 @@ func (s *Service) Update(ctx context.Context, id uuid.UUID, input UpdateInput) (
 	}
 	if input.Status != nil {
 		status := strings.ToLower(strings.TrimSpace(*input.Status))
-		switch status {
-		case StatusActive, StatusDisabled:
-			existing.Status = status
-		default:
-			return Application{}, fmt.Errorf("status must be active or disabled")
+		if err := validateUpdateStatus(status); err != nil {
+			return Application{}, err
 		}
+		existing.Status = status
 	}
 	if len(input.SettingsJSON) > 0 {
 		merged, err := MergeSettings(existing.Settings, input.SettingsJSON)

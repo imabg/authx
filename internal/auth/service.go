@@ -37,6 +37,9 @@ func NewService(usersRepo users.IUserRepository, challenges challenge.IService, 
 
 func (s *Service) Authenticate(ctx context.Context, application *app.Application, req Request) (*Result, error) {
 	req.normalize()
+	if err := req.Validate(); err != nil {
+		return nil, err
+	}
 	if err := rejectDisallowedEmail(application, req.Email); err != nil {
 		return nil, err
 	}
@@ -91,10 +94,6 @@ func (s *Service) authenticatePassword(ctx context.Context, application *app.App
 	if req.Code != "" && !application.Settings.EmailVerificationRequired {
 		return nil, ErrInvalidPayload
 	}
-	if !LooksLikeEmail(req.Email) {
-		return nil, ErrValidation
-	}
-
 	user, err := s.users.GetByEmail(ctx, application.ID, req.Email)
 	if err != nil {
 		if !errors.Is(err, users.ErrNotFound) {
@@ -166,9 +165,6 @@ func (s *Service) authenticateOTP(ctx context.Context, application *app.Applicat
 	if req.Email == "" {
 		return nil, ErrInvalidPayload
 	}
-	if !LooksLikeEmail(req.Email) {
-		return nil, ErrValidation
-	}
 	if req.Code == "" {
 		return s.sendOTPChallenge(ctx, application, nil, req.Email, req.IP)
 	}
@@ -189,9 +185,6 @@ func (s *Service) authenticateMagicLink(ctx context.Context, application *app.Ap
 	if req.Token == "" {
 		if req.Email == "" {
 			return nil, ErrInvalidPayload
-		}
-		if !LooksLikeEmail(req.Email) {
-			return nil, ErrValidation
 		}
 		return s.sendMagicLinkChallenge(ctx, application, req.Email, req.IP)
 	}
@@ -335,9 +328,6 @@ func authenticatedResult(pair token.Pair, user users.User) *Result {
 func rejectDisallowedEmail(application *app.Application, email string) error {
 	if email == "" {
 		return nil
-	}
-	if !LooksLikeEmail(email) {
-		return ErrValidation
 	}
 	if application != nil && application.Settings.EmailDomainBlocked(email) {
 		return ErrEmailDomainBlocked

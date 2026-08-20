@@ -11,18 +11,19 @@ import (
 	"github.com/imabg/authx/internal/app"
 	"github.com/imabg/authx/internal/httpx"
 	"github.com/imabg/authx/internal/users"
+	"github.com/imabg/authx/internal/validate"
 )
 
 type createApplicationBody struct {
-	Name        string          `json:"name"`
+	Name        string          `json:"name" validate:"required"`
 	Description string          `json:"description"`
 	Settings    json.RawMessage `json:"settings"`
 }
 
 type updateApplicationBody struct {
-	Name        *string         `json:"name"`
+	Name        *string         `json:"name" validate:"omitempty,min=1"`
 	Description *string         `json:"description"`
-	Status      *string         `json:"status"`
+	Status      *string         `json:"status" validate:"omitempty,oneof=active disabled"`
 	Settings    json.RawMessage `json:"settings"`
 }
 
@@ -40,10 +41,7 @@ type createApplicationResponse struct {
 	ClientSecret string `json:"client_secret"`
 }
 
-type updateUserBody struct {
-	FirstName *string `json:"first_name"`
-	LastName  *string `json:"last_name"`
-}
+type updateUserBody = users.ProfileUpdate
 
 func publicApplication(a app.Application) applicationResponse {
 	return applicationResponse{
@@ -60,6 +58,10 @@ func (srv *Server) handleCreateApplication(w http.ResponseWriter, r *http.Reques
 	var body createApplicationBody
 	if err := httpx.DecodeJSON(r, &body); err != nil {
 		httpx.WriteError(w, http.StatusBadRequest, "invalid_json", "invalid request body")
+		return
+	}
+	if err := validate.Struct(body); err != nil {
+		httpx.WriteError(w, http.StatusBadRequest, "validation_error", validationErrorMessage(err))
 		return
 	}
 	settings, err := app.DecodeSettings(body.Settings)
@@ -112,6 +114,10 @@ func (srv *Server) handleUpdateApplication(w http.ResponseWriter, r *http.Reques
 		httpx.WriteError(w, http.StatusBadRequest, "invalid_json", "invalid request body")
 		return
 	}
+	if err := validate.Struct(body); err != nil {
+		httpx.WriteError(w, http.StatusBadRequest, "validation_error", validationErrorMessage(err))
+		return
+	}
 	updated, err := srv.apps.Update(r.Context(), id, app.UpdateInput{
 		Name:         body.Name,
 		Description:  body.Description,
@@ -159,10 +165,7 @@ func (srv *Server) handleAdminUpdateUser(w http.ResponseWriter, r *http.Request)
 }
 
 func applyAndStoreUserUpdate(ctx context.Context, repo users.IUserRepository, user users.User, body updateUserBody) (users.User, error) {
-	patched, err := users.ApplyProfileUpdate(user, users.ProfileUpdate{
-		FirstName: body.FirstName,
-		LastName:  body.LastName,
-	})
+	patched, err := users.ApplyProfileUpdate(user, body)
 	if err != nil {
 		return users.User{}, err
 	}

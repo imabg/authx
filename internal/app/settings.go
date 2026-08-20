@@ -7,6 +7,7 @@ import (
 	"unicode"
 
 	"github.com/imabg/authx/internal/mail"
+	"github.com/imabg/authx/internal/validate"
 )
 
 type AuthMethod string
@@ -18,19 +19,19 @@ const (
 )
 
 type PasswordSettings struct {
-	MinLength        int  `json:"min_length"`
+	MinLength        int  `json:"min_length" validate:"gte=6"`
 	RequireMixedCase bool `json:"require_mixed_case"`
 	RequireDigit     bool `json:"require_digit"`
 }
 
 type OTPSettings struct {
-	Length      int `json:"length"`
-	TTLSeconds  int `json:"ttl_seconds"`
-	MaxAttempts int `json:"max_attempts"`
+	Length      int `json:"length" validate:"gte=4,lte=12"`
+	TTLSeconds  int `json:"ttl_seconds" validate:"gte=30,lte=86400"`
+	MaxAttempts int `json:"max_attempts" validate:"gte=1"`
 }
 
 type MagicLinkSettings struct {
-	TTLSeconds int `json:"ttl_seconds"`
+	TTLSeconds int `json:"ttl_seconds" validate:"gte=30"`
 }
 
 type TokenSettings struct {
@@ -40,7 +41,7 @@ type TokenSettings struct {
 
 type Settings struct {
 	SignupEnabled             bool              `json:"signup_enabled"`
-	AuthMethod                AuthMethod        `json:"auth_method"`
+	AuthMethod                AuthMethod        `json:"auth_method" validate:"required,oneof=password otp magic_link"`
 	Password                  PasswordSettings  `json:"password"`
 	OTP                       OTPSettings       `json:"otp"`
 	MagicLink                 MagicLinkSettings `json:"magic_link"`
@@ -244,33 +245,8 @@ func (s Settings) EmailDomainBlocked(email string) bool {
 }
 
 func ValidateSettings(settings Settings) error {
-	switch settings.AuthMethod {
-	case AuthMethodPassword, AuthMethodOTP, AuthMethodMagicLink:
-	case "":
-		return fmt.Errorf("auth_method is required")
-	default:
-		return fmt.Errorf("auth_method must be password, otp, or magic_link")
-	}
-	if settings.Password.MinLength < 6 {
-		return fmt.Errorf("password.min_length must be at least 6")
-	}
-	if settings.OTP.Length < 4 || settings.OTP.Length > 12 {
-		return fmt.Errorf("otp.length must be between 4 and 12")
-	}
-	if settings.OTP.TTLSeconds < 30 {
-		return fmt.Errorf("otp.ttl_seconds must be at least 30")
-	}
-	if settings.OTP.TTLSeconds > 86400 {
-		return fmt.Errorf("otp.ttl_seconds must be at most 86400")
-	}
-	if settings.OTP.MaxAttempts < 1 {
-		return fmt.Errorf("otp.max_attempts must be at least 1")
-	}
-	if settings.MagicLink.TTLSeconds < 30 {
-		return fmt.Errorf("magic_link.ttl_seconds must be at least 30")
-	}
-	if err := settings.Mail.Validate(); err != nil {
-		return err
+	if err := validate.Struct(settings); err != nil {
+		return mapSettingsValidationError(err)
 	}
 	if _, err := NormalizeBlockedDomains(settings.BlockedDomains); err != nil {
 		return err

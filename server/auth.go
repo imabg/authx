@@ -7,6 +7,7 @@ import (
 	"github.com/imabg/authx/internal/app"
 	"github.com/imabg/authx/internal/auth"
 	"github.com/imabg/authx/internal/httpx"
+	"github.com/imabg/authx/internal/validate"
 )
 
 type authenticateBody struct {
@@ -19,7 +20,7 @@ type authenticateBody struct {
 }
 
 type refreshBody struct {
-	RefreshToken string `json:"refresh_token"`
+	RefreshToken string `json:"refresh_token" validate:"required"`
 }
 
 func (srv *Server) handleAuthenticate(w http.ResponseWriter, r *http.Request) {
@@ -52,6 +53,10 @@ func (srv *Server) handleRefresh(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, http.StatusBadRequest, "invalid_json", "invalid request body")
 		return
 	}
+	if err := validate.Struct(body); err != nil {
+		httpx.WriteError(w, http.StatusBadRequest, "validation_error", "invalid request")
+		return
+	}
 	result, err := srv.auth.Refresh(r.Context(), application, body.RefreshToken)
 	if err != nil {
 		srv.writeAuthError(w, r, err)
@@ -64,6 +69,10 @@ func (srv *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 	var body refreshBody
 	if err := httpx.DecodeJSON(r, &body); err != nil {
 		httpx.WriteError(w, http.StatusBadRequest, "invalid_json", "invalid request body")
+		return
+	}
+	if err := validate.Struct(body); err != nil {
+		httpx.WriteError(w, http.StatusBadRequest, "validation_error", "invalid request")
 		return
 	}
 	if err := srv.auth.Logout(r.Context(), body.RefreshToken); err != nil {

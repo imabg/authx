@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/imabg/authx/internal/users"
+	"github.com/imabg/authx/internal/validate"
 )
 
 const (
@@ -14,13 +15,13 @@ const (
 )
 
 type Request struct {
-	Email     string
+	Email     string `validate:"omitempty,authemail"`
 	Password  string
 	Code      string
 	Token     string
-	FirstName string
-	LastName  string
-	IP        string
+	FirstName string `validate:"omitempty,runemax=25"`
+	LastName  string `validate:"omitempty,runemax=50"`
+	IP        string `validate:"-"`
 }
 
 type Result struct {
@@ -40,6 +41,15 @@ func (r *Request) normalize() {
 	r.Token = strings.TrimSpace(r.Token)
 	r.FirstName = strings.TrimSpace(r.FirstName)
 	r.LastName = strings.TrimSpace(r.LastName)
+}
+
+func (r *Request) Validate() error {
+	return validate.Map(validate.Struct(r), ErrValidation, func(path, tag, param string) (string, bool) {
+		if path == "email" && (tag == "authemail" || tag == "email") {
+			return "email is invalid", true
+		}
+		return validate.StandardMessages(path, tag, param)
+	})
 }
 
 func challengeResult(challengeType string, ttl time.Duration) *Result {

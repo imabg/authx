@@ -1,8 +1,9 @@
 package mail
 
 import (
-	"fmt"
 	"strings"
+
+	"github.com/imabg/authx/internal/validate"
 )
 
 type Provider string
@@ -17,20 +18,20 @@ const (
 )
 
 type Config struct {
-	Provider  Provider       `json:"provider"`
-	FromEmail string         `json:"from_email"`
+	Provider  Provider       `json:"provider" validate:"omitempty,oneof=log sendgrid smtp"`
+	FromEmail string         `json:"from_email" validate:"sendgrid_from,smtp_from"`
 	FromName  string         `json:"from_name"`
 	SendGrid  SendGridConfig `json:"sendgrid"`
 	SMTP      SMTPConfig     `json:"smtp"`
 }
 
 type SendGridConfig struct {
-	APIKey string `json:"api_key,omitempty"`
+	APIKey string `json:"api_key,omitempty" validate:"sendgrid_key"`
 }
 
 type SMTPConfig struct {
-	Host       string `json:"host"`
-	Port       int    `json:"port"`
+	Host       string `json:"host" validate:"smtp_host"`
+	Port       int    `json:"port" validate:"smtp_port"`
 	Username   string `json:"username"`
 	Password   string `json:"password,omitempty"`
 	TLS        bool   `json:"tls"`
@@ -53,30 +54,45 @@ func SecretUnchanged(v string) bool {
 }
 
 func (c Config) Validate() error {
-	provider := Provider(strings.ToLower(strings.TrimSpace(string(c.Provider))))
-	switch provider {
-	case "", ProviderLog:
-		return nil
-	case ProviderSendGrid:
-		if strings.TrimSpace(c.FromEmail) == "" {
-			return fmt.Errorf("mail.from_email is required for sendgrid")
-		}
-		if SecretUnchanged(c.SendGrid.APIKey) {
-			return fmt.Errorf("mail.sendgrid.api_key is required")
-		}
-		return nil
-	case ProviderSMTP:
-		if strings.TrimSpace(c.SMTP.Host) == "" {
-			return fmt.Errorf("mail.smtp.host is required")
-		}
-		if c.SMTP.Port < 1 || c.SMTP.Port > 65535 {
-			return fmt.Errorf("mail.smtp.port must be between 1 and 65535")
-		}
-		if strings.TrimSpace(c.FromEmail) == "" {
-			return fmt.Errorf("mail.from_email is required for smtp")
-		}
-		return nil
-	default:
-		return fmt.Errorf("mail.provider must be log, sendgrid, or smtp")
+	if err := validate.Struct(c); err != nil {
+		return mapMailValidationError(err)
 	}
+	return nil
+}
+
+func mapMailValidationError(err error) error {
+	return validate.Map(err, nil, mailValidationMessage)
+}
+
+func mailValidationMessage(path, tag, param string) (string, bool) {
+	switch path {
+	case "provider":
+		if tag == "oneof" {
+			return "mail.provider must be log, sendgrid, or smtp", true
+		}
+	case "from_email":
+		switch tag {
+		case "sendgrid_from":
+			return "mail.from_email is required for sendgrid", true
+		case "smtp_from":
+			return "mail.from_email is required for smtp", true
+		}
+	case "sendgrid.api_key":
+		if tag == "sendgrid_key" {
+			return "mail.sendgrid.api_key is required", true
+		}
+	case "smtp.host":
+		if tag == "smtp_host" {
+			return "mail.smtp.host is required", true
+		}
+	case "smtp.port":
+		if tag == "smtp_port" {
+			return "mail.smtp.port must be between 1 and 65535", true
+		}
+	}
+	full := path
+	if !strings.HasPrefix(path, "mail.") {
+		full = "mail." + path
+	}
+	return validate.StandardMessages(full, tag, param)
 }
