@@ -8,15 +8,19 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-func createLogger() *zap.Logger {
+func createLogger(dev bool) *zap.Logger {
+	return zap.Must(buildConfig(dev).Build())
+}
+
+func buildConfig(dev bool) zap.Config {
 	encodeCfg := zap.NewProductionEncoderConfig()
 	encodeCfg.TimeKey = "timestamp"
 	encodeCfg.EncodeTime = zapcore.ISO8601TimeEncoder
-	config := zap.Config{
-		Level:             zap.NewAtomicLevelAt(getLogLevelFromEnv()),
-		Development:       false,
-		DisableCaller:     false,
-		DisableStacktrace: false,
+	return zap.Config{
+		Level:             zap.NewAtomicLevelAt(logLevel(dev)),
+		Development:       dev,
+		DisableCaller:     !dev,
+		DisableStacktrace: !dev,
 		Sampling:          nil,
 		Encoding:          "json",
 		EncoderConfig:     encodeCfg,
@@ -30,34 +34,41 @@ func createLogger() *zap.Logger {
 			"pid": os.Getpid(),
 		},
 	}
-	return zap.Must(config.Build())
 }
 
-func getLogLevelFromEnv() zapcore.Level {
-	levelStr := strings.ToLower(os.Getenv("LOG_LEVEL"))
-	switch levelStr {
-	case "debug":
+func logLevel(dev bool) zapcore.Level {
+	if level, ok := parseLogLevel(os.Getenv("LOG_LEVEL")); ok {
+		return level
+	}
+	if dev {
 		return zap.DebugLevel
+	}
+	return zap.InfoLevel
+}
+
+func parseLogLevel(levelStr string) (zapcore.Level, bool) {
+	switch strings.ToLower(strings.TrimSpace(levelStr)) {
+	case "debug":
+		return zap.DebugLevel, true
 	case "info":
-		return zap.InfoLevel
+		return zap.InfoLevel, true
 	case "warn":
-		return zap.WarnLevel
+		return zap.WarnLevel, true
 	case "error":
-		return zap.ErrorLevel
+		return zap.ErrorLevel, true
 	case "dpanic":
-		return zap.DPanicLevel
+		return zap.DPanicLevel, true
 	case "panic":
-		return zap.PanicLevel
+		return zap.PanicLevel, true
 	case "fatal":
-		return zap.FatalLevel
+		return zap.FatalLevel, true
 	default:
-		return zap.InfoLevel
+		return zap.InfoLevel, false
 	}
 }
 
-func Setup() {
-	logger := createLogger()
-	defer logger.Sync()
+func Setup(dev bool) {
+	logger := createLogger(dev)
 	zap.ReplaceGlobals(logger)
 	zap.RedirectStdLog(logger)
 }

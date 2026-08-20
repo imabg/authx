@@ -7,8 +7,8 @@ import (
 	"os/signal"
 	"time"
 
-	"github.com/imabg/authx/pkg/db"
 	"github.com/imabg/authx/pkg/config"
+	"github.com/imabg/authx/pkg/db"
 	"github.com/imabg/authx/pkg/logger"
 	"github.com/imabg/authx/server"
 	"go.uber.org/zap"
@@ -19,20 +19,23 @@ func main() {
 	var wait time.Duration
 	flag.DurationVar(&wait, "graceful-timeout", time.Second*15, "")
 	flag.Parse()
-	// setup logger
-	logger.Setup()
-	zap.L().Info("logger is setup")
 
-	// setup db
-	dbCtx, dbCancel := context.WithTimeout(context.Background(), 5*time.Second)
-	conn, err := db.Setup(dbCtx, env)
-	if err != nil {
-		os.Exit(0)
-	}
+	logger.Setup(env.IsDevelopment())
+	zap.L().Info("logger is setup", zap.String("env", env.App.ENV), zap.Bool("dev", env.IsDevelopment()))
+
+	dbCtx, dbCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer dbCancel()
+	database, err := db.Setup(dbCtx, env)
+	if err != nil {
+		os.Exit(1)
+	}
+	defer database.Close()
 
-	// setup server and graceful shutdown
-	srv := server.Setup(env, conn)
+	if err := db.RunMigrations(env); err != nil {
+		os.Exit(1)
+	}
+
+	srv := server.Setup(env, database)
 	srv.Run()
 
 	c := make(chan os.Signal, 1)
