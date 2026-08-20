@@ -1,0 +1,7 @@
+CREATE TABLE IF NOT EXISTS credentials (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+  password_hash TEXT NOT NULL,
+  creation_timestamp TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  updated_timestamp TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
