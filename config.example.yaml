@@ -1,0 +1,24 @@
+app:
+  port: ":8080"
+  env: "development"
+
+database:
+  host: "localhost"
+  port: 5432
+  user: "abhaygoswami"
+  password: "postgres"
+  name: "authx"
+  sslmode: "disable"
+  migrationURI: "file://migrations"
+
+jwt:
+  secret: "change-me-in-production-use-a-long-random-string"
+  issuer: "authx"
+
+admin_api_key: "dev-admin-key"
+public_base_url: "http://localhost:3000"
+
+mail:
+  # Fallback when an application has mail.provider unset or "log".
+  # Per-application SendGrid or SMTP credentials in application settings win.
+  driver: "log"
