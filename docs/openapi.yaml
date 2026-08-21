@@ -439,7 +439,7 @@ paths:
                         host: smtp.example.com
                         port: 587
                         username: acme
-                        password: smtp-secret
+                        password: czNjcmV0
                         tls: true
                         skip_verify: false
               blockedDomains:
@@ -550,7 +550,9 @@ paths:
         are merged: omitted fields keep their current values. Sending `blocked_domains`
         replaces the stored list; omitting it keeps the current list. SendGrid API
         keys and SMTP passwords are never returned in plaintext (`********` if
-        configured). Posting the masked value leaves the stored secret unchanged.
+        configured for SendGrid). SMTP username and password are omitted from
+        responses. Posting a masked SendGrid key leaves the stored secret unchanged.
+        SMTP passwords must be sent as base64; they are decrypted only for sending.
       security:
         - AdminKey: []
       parameters:
@@ -597,7 +599,7 @@ paths:
                         host: smtp.example.com
                         port: 587
                         username: acme
-                        password: smtp-secret
+                        password: czNjcmV0
                         tls: true
                         skip_verify: false
               disable:
@@ -1237,7 +1239,7 @@ components:
           type: string
         settings:
           $ref: "#/components/schemas/ApplicationSettings"
-          description: Mail secrets are returned as `********` when configured.
+          description: Mail secrets are write-only. SendGrid keys are returned as `********` when configured. SMTP username and password are never returned.
         status:
           type: string
           enum: [active, disabled]
@@ -1282,10 +1284,13 @@ components:
           description: Use 587 with `tls: true` for STARTTLS, or 465 with `tls: true` for implicit TLS.
         username:
           type: string
+          writeOnly: true
+          description: SMTP username. Write-only. Encrypted at rest. Never returned in API responses.
         password:
           type: string
           format: password
-          description: SMTP password. Write-only. Responses return `********` when a password is stored.
+          writeOnly: true
+          description: SMTP password, base64-encoded by the client. Authx decodes then encrypts it at rest. Never returned in API responses.
         tls:
           type: boolean
           description: When true, port 465 uses implicit TLS and other ports use STARTTLS.

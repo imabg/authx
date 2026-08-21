@@ -10,16 +10,16 @@ func TestConfigPublicMasksSecrets(t *testing.T) {
 		Provider:  ProviderSendGrid,
 		FromEmail: "noreply@example.com",
 		SendGrid:  SendGridConfig{APIKey: "sg-secret"},
-		SMTP:      SMTPConfig{Password: "smtp-secret"},
+		SMTP:      SMTPConfig{Username: "acme", Password: "smtp-secret"},
 	}
 	got := cfg.Public()
 	if got.SendGrid.APIKey != MaskedSecret {
 		t.Fatalf("api key = %q", got.SendGrid.APIKey)
 	}
-	if got.SMTP.Password != MaskedSecret {
-		t.Fatalf("smtp password = %q", got.SMTP.Password)
+	if got.SMTP.Username != "" || got.SMTP.Password != "" {
+		t.Fatalf("smtp credentials leaked: %+v", got.SMTP)
 	}
-	if cfg.SendGrid.APIKey != "sg-secret" || cfg.SMTP.Password != "smtp-secret" {
+	if cfg.SendGrid.APIKey != "sg-secret" || cfg.SMTP.Username != "acme" || cfg.SMTP.Password != "smtp-secret" {
 		t.Fatal("Public mutated the original config")
 	}
 }

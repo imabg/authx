@@ -32,7 +32,7 @@ type SendGridConfig struct {
 type SMTPConfig struct {
 	Host       string `json:"host" validate:"smtp_host"`
 	Port       int    `json:"port" validate:"smtp_port"`
-	Username   string `json:"username"`
+	Username   string `json:"username,omitempty"`
 	Password   string `json:"password,omitempty"`
 	TLS        bool   `json:"tls"`
 	SkipVerify bool   `json:"skip_verify"`
@@ -43,9 +43,9 @@ func (c Config) Public() Config {
 	if out.SendGrid.APIKey != "" {
 		out.SendGrid.APIKey = MaskedSecret
 	}
-	if out.SMTP.Password != "" {
-		out.SMTP.Password = MaskedSecret
-	}
+	// SMTP username and password are write-only; never return them (masked or not).
+	out.SMTP.Username = ""
+	out.SMTP.Password = ""
 	return out
 }
 

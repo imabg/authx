@@ -14,6 +14,7 @@ import (
 	"github.com/imabg/authx/internal/challenge"
 	"github.com/imabg/authx/internal/httpx"
 	"github.com/imabg/authx/internal/mail"
+	"github.com/imabg/authx/internal/secret"
 	"github.com/imabg/authx/internal/token"
 	"github.com/imabg/authx/internal/users"
 	"github.com/imabg/authx/pkg/config"
@@ -37,9 +38,13 @@ func Setup(cfg config.ApplicationConfig, database *db.DB) *Server {
 	if cfg.JWT.Secret == "" {
 		zap.L().Fatal("jwt.secret is required")
 	}
+	secrets, err := secret.NewBox(cfg.Encryption.Key)
+	if err != nil {
+		zap.L().Fatal("invalid encryption.key", zap.Error(err))
+	}
 	pool := database.Pool()
 	appRepo := app.NewRepository(pool)
-	appSvc := app.NewService(appRepo)
+	appSvc := app.NewServiceWithSecrets(appRepo, secrets)
 	userRepo := users.NewUserRepository(pool)
 	challengeSvc := challenge.NewService(challenge.NewRepository(pool))
 	tokenSvc := token.NewService(cfg, pool)

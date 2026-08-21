@@ -108,7 +108,10 @@ func MergeSettings(base Settings, raw json.RawMessage) (Settings, error) {
 	if err := json.Unmarshal(raw, &patch); err != nil {
 		return Settings{}, fmt.Errorf("decode application settings: %w", err)
 	}
-	merged := applySettingsPatch(base, patch)
+	merged, err := applySettingsPatch(base, patch)
+	if err != nil {
+		return Settings{}, err
+	}
 	if err := prepareSettings(&merged); err != nil {
 		return Settings{}, err
 	}
@@ -318,7 +321,7 @@ type smtpPatch struct {
 	SkipVerify *bool   `json:"skip_verify"`
 }
 
-func applySettingsPatch(base Settings, patch settingsPatch) Settings {
+func applySettingsPatch(base Settings, patch settingsPatch) (Settings, error) {
 	if patch.SignupEnabled != nil {
 		base.SignupEnabled = *patch.SignupEnabled
 	}
@@ -367,12 +370,16 @@ func applySettingsPatch(base Settings, patch settingsPatch) Settings {
 		}
 	}
 	if patch.Mail != nil {
-		base.Mail = applyMailPatch(base.Mail, *patch.Mail)
+		updated, err := applyMailPatch(base.Mail, *patch.Mail)
+		if err != nil {
+			return Settings{}, err
+		}
+		base.Mail = updated
 	}
-	return base
+	return base, nil
 }
 
-func applyMailPatch(base mail.Config, patch mailPatch) mail.Config {
+func applyMailPatch(base mail.Config, patch mailPatch) (mail.Config, error) {
 	if patch.Provider != nil {
 		base.Provider = *patch.Provider
 	}
@@ -396,7 +403,11 @@ func applyMailPatch(base mail.Config, patch mailPatch) mail.Config {
 			base.SMTP.Username = strings.TrimSpace(*patch.SMTP.Username)
 		}
 		if patch.SMTP.Password != nil && !mail.SecretUnchanged(*patch.SMTP.Password) {
-			base.SMTP.Password = *patch.SMTP.Password
+			decoded, err := mail.DecodeSMTPPassword(*patch.SMTP.Password)
+			if err != nil {
+				return mail.Config{}, err
+			}
+			base.SMTP.Password = decoded
 		}
 		if patch.SMTP.TLS != nil {
 			base.SMTP.TLS = *patch.SMTP.TLS
@@ -405,5 +416,5 @@ func applyMailPatch(base mail.Config, patch mailPatch) mail.Config {
 			base.SMTP.SkipVerify = *patch.SMTP.SkipVerify
 		}
 	}
-	return base
+	return base, nil
 }

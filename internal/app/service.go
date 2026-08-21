@@ -9,14 +9,21 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/imabg/authx/internal/hasher"
+	"github.com/imabg/authx/internal/mail"
+	"github.com/imabg/authx/internal/secret"
 )
 
 type Service struct {
-	repo IRepository
+	repo    IRepository
+	secrets secret.Box
 }
 
 func NewService(repo IRepository) *Service {
-	return &Service{repo: repo}
+	return NewServiceWithSecrets(repo, nil)
+}
+
+func NewServiceWithSecrets(repo IRepository, secrets secret.Box) *Service {
+	return &Service{repo: repo, secrets: secrets}
 }
 
 type CreateInput struct {
@@ -47,6 +54,12 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (CreatedApplica
 	if err := prepareSettings(&input.Settings); err != nil {
 		return CreatedApplication{}, err
 	}
+	if err := mail.DecodeIncomingSMTP(&input.Settings.Mail); err != nil {
+		return CreatedApplication{}, err
+	}
+	if err := input.Settings.Mail.EncryptSecrets(s.secrets); err != nil {
+		return CreatedApplication{}, err
+	}
 	clientID, err := randomHex(16)
 	if err != nil {
 		return CreatedApplication{}, err
@@ -71,11 +84,21 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (CreatedApplica
 	if err != nil {
 		return CreatedApplication{}, err
 	}
+	if err := s.decryptMail(&application); err != nil {
+		return CreatedApplication{}, err
+	}
 	return CreatedApplication{Application: application, ClientSecret: clientSecret}, nil
 }
 
 func (s *Service) GetByID(ctx context.Context, id uuid.UUID) (Application, error) {
-	return s.repo.GetByID(ctx, id)
+	application, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return Application{}, err
+	}
+	if err := s.decryptMail(&application); err != nil {
+		return Application{}, err
+	}
+	return application, nil
 }
 
 func (s *Service) GetByClientCredentials(ctx context.Context, clientID, clientSecret string) (Application, error) {
@@ -87,12 +110,18 @@ func (s *Service) GetByClientCredentials(ctx context.Context, clientID, clientSe
 	if err != nil || !ok {
 		return Application{}, ErrNotFound
 	}
+	if err := s.decryptMail(&application); err != nil {
+		return Application{}, err
+	}
 	return application, nil
 }
 
 func (s *Service) Update(ctx context.Context, id uuid.UUID, input UpdateInput) (Application, error) {
 	existing, err := s.repo.GetByID(ctx, id)
 	if err != nil {
+		return Application{}, err
+	}
+	if err := s.decryptMail(&existing); err != nil {
 		return Application{}, err
 	}
 	if input.Name != nil {
@@ -122,8 +151,25 @@ func (s *Service) Update(ctx context.Context, id uuid.UUID, input UpdateInput) (
 	if err := prepareSettings(&existing.Settings); err != nil {
 		return Application{}, err
 	}
+	if err := existing.Settings.Mail.EncryptSecrets(s.secrets); err != nil {
+		return Application{}, err
+	}
 	existing.UpdatedBy = "admin"
-	return s.repo.Update(ctx, existing)
+	updated, err := s.repo.Update(ctx, existing)
+	if err != nil {
+		return Application{}, err
+	}
+	if err := s.decryptMail(&updated); err != nil {
+		return Application{}, err
+	}
+	return updated, nil
+}
+
+func (s *Service) decryptMail(application *Application) error {
+	if application == nil {
+		return nil
+	}
+	return application.Settings.Mail.DecryptSecrets(s.secrets)
 }
 
 func randomHex(nBytes int) (string, error) {

@@ -9,6 +9,7 @@ import (
 	"github.com/imabg/authx/internal/app"
 	"github.com/imabg/authx/internal/app/mock"
 	"github.com/imabg/authx/internal/hasher"
+	"github.com/imabg/authx/internal/secret"
 	"go.uber.org/mock/gomock"
 )
 
@@ -212,6 +213,37 @@ func TestServiceUpdate(t *testing.T) {
 		_, err := svc.Update(ctx, id, app.UpdateInput{Name: &empty})
 		if err == nil || err.Error() != "name is required" {
 			t.Fatalf("error = %v", err)
+		}
+	})
+
+	t.Run("encrypts smtp credentials at rest", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		repo := mock.NewMockAppRepository(ctrl)
+		box, err := secret.NewBox("00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff")
+		if err != nil {
+			t.Fatalf("NewBox: %v", err)
+		}
+		repo.EXPECT().GetByID(gomock.Any(), id).Return(stored, nil)
+		repo.EXPECT().Update(gomock.Any(), gomock.Any()).DoAndReturn(
+			func(_ context.Context, application app.Application) (app.Application, error) {
+				if application.Settings.Mail.SMTP.Username == "acme" || application.Settings.Mail.SMTP.Password == "s3cret" {
+					t.Fatalf("stored plaintext credentials: %+v", application.Settings.Mail.SMTP)
+				}
+				if !secret.IsEncrypted(application.Settings.Mail.SMTP.Username) || !secret.IsEncrypted(application.Settings.Mail.SMTP.Password) {
+					t.Fatalf("expected encrypted credentials: %+v", application.Settings.Mail.SMTP)
+				}
+				return application, nil
+			},
+		)
+		svc := app.NewServiceWithSecrets(repo, box)
+		got, err := svc.Update(ctx, id, app.UpdateInput{
+			SettingsJSON: []byte(`{"mail":{"provider":"smtp","from_email":"noreply@example.com","smtp":{"host":"smtp.example.com","port":587,"username":"acme","password":"czNjcmV0","tls":true}}}`),
+		})
+		if err != nil {
+			t.Fatalf("Update: %v", err)
+		}
+		if got.Settings.Mail.SMTP.Username != "acme" || got.Settings.Mail.SMTP.Password != "s3cret" {
+			t.Fatalf("decrypted return = %+v", got.Settings.Mail.SMTP)
 		}
 	})
 }

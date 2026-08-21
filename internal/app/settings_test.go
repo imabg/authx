@@ -201,13 +201,20 @@ func TestMergeSettings(t *testing.T) {
 		}
 	})
 
-	t.Run("updates smtp settings", func(t *testing.T) {
-		got, err := app.MergeSettings(base, []byte(`{"mail":{"provider":"smtp","from_email":"noreply@example.com","from_name":"Acme","smtp":{"host":"smtp.example.com","port":587,"username":"acme","password":"s3cret","tls":true}}}`))
+	t.Run("updates smtp settings and decodes base64 password", func(t *testing.T) {
+		got, err := app.MergeSettings(base, []byte(`{"mail":{"provider":"smtp","from_email":"noreply@example.com","from_name":"Acme","smtp":{"host":"smtp.example.com","port":587,"username":"acme","password":"czNjcmV0","tls":true}}}`))
 		if err != nil {
 			t.Fatalf("MergeSettings: %v", err)
 		}
-		if got.Mail.Provider != "smtp" || got.Mail.SMTP.Host != "smtp.example.com" || got.Mail.SMTP.Password != "s3cret" {
+		if got.Mail.Provider != "smtp" || got.Mail.SMTP.Host != "smtp.example.com" || got.Mail.SMTP.Username != "acme" || got.Mail.SMTP.Password != "s3cret" {
 			t.Fatalf("mail = %+v", got.Mail)
+		}
+	})
+
+	t.Run("rejects invalid base64 smtp password", func(t *testing.T) {
+		_, err := app.MergeSettings(base, []byte(`{"mail":{"smtp":{"password":"not-base64!"}}}`))
+		if err == nil || !strings.Contains(err.Error(), "mail.smtp.password must be base64-encoded") {
+			t.Fatalf("error = %v", err)
 		}
 	})
 
@@ -255,12 +262,16 @@ func TestMergeSettings(t *testing.T) {
 func TestSettingsPublicMasksMailSecrets(t *testing.T) {
 	settings := app.DefaultSettings()
 	settings.Mail.SendGrid.APIKey = "sg-real"
+	settings.Mail.SMTP.Username = "acme"
 	settings.Mail.SMTP.Password = "smtp-real"
 	got := settings.Public()
-	if got.Mail.SendGrid.APIKey != "********" || got.Mail.SMTP.Password != "********" {
+	if got.Mail.SendGrid.APIKey != "********" {
 		t.Fatalf("public mail = %+v", got.Mail)
 	}
-	if settings.Mail.SendGrid.APIKey != "sg-real" {
+	if got.Mail.SMTP.Username != "" || got.Mail.SMTP.Password != "" {
+		t.Fatalf("smtp credentials leaked: %+v", got.Mail.SMTP)
+	}
+	if settings.Mail.SendGrid.APIKey != "sg-real" || settings.Mail.SMTP.Username != "acme" {
 		t.Fatal("Public mutated original settings")
 	}
 }

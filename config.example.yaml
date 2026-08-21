@@ -22,3 +22,10 @@ mail:
   # Fallback when an application has mail.provider unset or "log".
   # Per-application SendGrid or SMTP credentials in application settings win.
   driver: "log"
+
+encryption:
+  # 32-byte AES-256 key used to encrypt SMTP username and password at rest.
+  # Provide 64 hex characters, or standard base64 of 32 raw bytes.
+  # Generate with: openssl rand -hex 32
+  # Also accepted as the ENCRYPTION_KEY environment variable.
+  key: "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"
