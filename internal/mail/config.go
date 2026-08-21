@@ -22,7 +22,7 @@ type Config struct {
 	FromEmail string         `json:"from_email" validate:"sendgrid_from,smtp_from"`
 	FromName  string         `json:"from_name"`
 	SendGrid  SendGridConfig `json:"sendgrid"`
-	SMTP      SMTPConfig     `json:"smtp"`
+	SMTP      SMTPConfig     `json:"smtp,omitzero"`
 }
 
 type SendGridConfig struct {
@@ -30,8 +30,8 @@ type SendGridConfig struct {
 }
 
 type SMTPConfig struct {
-	Host       string `json:"host" validate:"smtp_host"`
-	Port       int    `json:"port" validate:"smtp_port"`
+	Host       string `json:"host"`
+	Port       int    `json:"port"`
 	Username   string `json:"username,omitempty"`
 	Password   string `json:"password,omitempty"`
 	TLS        bool   `json:"tls"`

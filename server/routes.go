@@ -28,5 +28,11 @@ func (srv *Server) adminRoute(r *mux.Router) {
 	admin.HandleFunc("/applications", srv.handleCreateApplication).Methods(http.MethodPost)
 	admin.HandleFunc("/applications/{id}", srv.handleGetApplication).Methods(http.MethodGet)
 	admin.HandleFunc("/applications/{id}", srv.handleUpdateApplication).Methods(http.MethodPatch)
+	admin.HandleFunc("/applications/{id}/smtp-configs", srv.handleListSMTPConfigs).Methods(http.MethodGet)
+	admin.HandleFunc("/applications/{id}/smtp-configs", srv.handleCreateSMTPConfig).Methods(http.MethodPost)
+	admin.HandleFunc("/applications/{id}/smtp-configs/{sid}", srv.handleGetSMTPConfig).Methods(http.MethodGet)
+	admin.HandleFunc("/applications/{id}/smtp-configs/{sid}", srv.handleUpdateSMTPConfig).Methods(http.MethodPatch)
+	admin.HandleFunc("/applications/{id}/smtp-configs/{sid}", srv.handleDeleteSMTPConfig).Methods(http.MethodDelete)
+	admin.HandleFunc("/applications/{id}/smtp-configs/{sid}/activate", srv.handleActivateSMTPConfig).Methods(http.MethodPost)
 	admin.HandleFunc("/users/{id}", srv.handleAdminUpdateUser).Methods(http.MethodPatch)
 }

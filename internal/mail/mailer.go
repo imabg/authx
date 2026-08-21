@@ -2,11 +2,14 @@ package mail
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
 	"go.uber.org/zap"
 )
+
+var ErrNoActiveSMTP = errors.New("no active smtp configuration")
 
 //go:generate mockgen -destination=mock/mail_mock.go -package=mock github.com/imabg/authx/internal/mail Mailer
 
@@ -59,6 +62,9 @@ func (s *Service) dispatch(ctx context.Context, cfg Config, msg Message) error {
 	case ProviderSMTP:
 		if s.smtp == nil {
 			return fmt.Errorf("smtp sender is not configured")
+		}
+		if strings.TrimSpace(cfg.SMTP.Host) == "" {
+			return ErrNoActiveSMTP
 		}
 		return s.smtp.Send(ctx, cfg, msg)
 	default:

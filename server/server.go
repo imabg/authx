@@ -44,7 +44,8 @@ func Setup(cfg config.ApplicationConfig, database *db.DB) *Server {
 	}
 	pool := database.Pool()
 	appRepo := app.NewRepository(pool)
-	appSvc := app.NewServiceWithSecrets(appRepo, secrets)
+	smtpRepo := app.NewSMTPRepository(pool)
+	appSvc := app.NewServiceWithDeps(appRepo, smtpRepo, secrets)
 	userRepo := users.NewUserRepository(pool)
 	challengeSvc := challenge.NewService(challenge.NewRepository(pool))
 	tokenSvc := token.NewService(cfg, pool)

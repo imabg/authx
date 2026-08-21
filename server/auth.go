@@ -7,6 +7,7 @@ import (
 	"github.com/imabg/authx/internal/app"
 	"github.com/imabg/authx/internal/auth"
 	"github.com/imabg/authx/internal/httpx"
+	"github.com/imabg/authx/internal/mail"
 	"github.com/imabg/authx/internal/validate"
 )
 
@@ -124,6 +125,8 @@ func (srv *Server) writeAuthError(w http.ResponseWriter, r *http.Request, err er
 		httpx.WriteError(w, http.StatusForbidden, "email_domain_blocked", "email domain is not allowed")
 	case errors.Is(err, auth.ErrInvalidCredentials):
 		httpx.WriteError(w, http.StatusUnauthorized, "invalid_credentials", "invalid credentials")
+	case errors.Is(err, mail.ErrNoActiveSMTP):
+		httpx.WriteError(w, http.StatusBadRequest, "mail_not_configured", "no active smtp configuration")
 	default:
 		srv.logInternalError(r, err)
 		msg := "internal error"

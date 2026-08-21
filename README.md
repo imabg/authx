@@ -145,6 +145,8 @@ export CLIENT_SECRET=...
 
 Update OTP length, expiry, and mail credentials (SendGrid or SMTP) on an existing application. Stored SendGrid API keys are returned as `********`; posting that masked value leaves the secret unchanged. SMTP username and password are never returned. Send the SMTP password as standard base64; Authx decodes it and encrypts username and password at rest (`encryption.key` in config).
 
+An application can have multiple SMTP configurations. Create them with `POST /api/v1/admin/applications/{id}/smtp-configs` (new configs are **inactive**). Activate one with `POST /api/v1/admin/applications/{id}/smtp-configs/{sid}/activate` — that call deactivates any other active config for the application. Sending mail uses the active configuration; if none is active, auth returns `mail_not_configured`. Nested `settings.mail.smtp` on application create still seeds one inactive default config.
+
 ```bash
 curl -sS -X PATCH http://localhost:8080/api/v1/admin/applications/$APPLICATION_ID \
   -H 'Content-Type: application/json' \
