@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Authx",
-    "description": "Authx HTTP API (Collection v2.1).\n\n**Typical flow:** Admin -> Create application (password) -> copy `client_id` / `client_secret` into collection variables -> Auth -> Me.\n\n**Auth headers**\n- Auth and Me (`/api/v1/auth*`, `/api/v1/me`): `X-Authx-Client-Id` + `X-Authx-Client-Secret`. Me also needs `Authorization: Bearer <access_token>`.\n- Admin (`/api/v1/admin/*`): `X-Authx-Admin-Key` only (value of `admin_api_key` in server config).\n- Health and Docs: no auth.\n\nCreate-application and authenticate/refresh test scripts write `applicationId`, `clientId`, `clientSecret`, `accessToken`, `refreshToken`, and `userId` when the response includes them.",
+    "description": "Authx HTTP API (Collection v2.1).\n\n**Typical flow:** Admin -> Create application (password) -> copy `client_id` / `client_secret` into collection variables -> Auth -> Me.\n\n**Auth headers**\n- Auth and Me (`/api/v1/auth*`, `/api/v1/me`): `X-Authx-Client-Id` + `X-Authx-Client-Secret`. Me also needs `Authorization: Bearer <access_token>`.\n- Admin (`/api/v1/admin/*`): `X-Authx-Admin-Key` only (value of `admin_api_key` in server config).\n- Health and Docs: no auth.\n\n**SMTP:** `password` is standard base64. Credentials are never returned. New configs are inactive until activated; only one is active at a time. Nested `settings.mail.smtp` on application create seeds an inactive `default` config and is not stored in application JSON.\n\nCreate-application and authenticate/refresh test scripts write `applicationId`, `clientId`, `clientSecret`, `accessToken`, `refreshToken`, and `userId` when the response includes them. Create SMTP config writes `smtpConfigId`.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -35,6 +35,10 @@
     },
     {
       "key": "userId",
+      "value": ""
+    },
+    {
+      "key": "smtpConfigId",
       "value": ""
     }
   ],
@@ -1216,7 +1220,7 @@
     },
     {
       "name": "Admin applications",
-      "description": "Admin application CRUD. Header: `X-Authx-Admin-Key` only (no client credentials).",
+      "description": "Admin application CRUD. Header: `X-Authx-Admin-Key` only (no client credentials). SMTP transports live under Admin SMTP configs, not on nested application JSON.",
       "item": [
         {
           "name": "Create application (password)",
@@ -1284,7 +1288,7 @@
                   "value": "11111111-1111-1111-1111-111111111111"
                 }
               ],
-              "body": "{\n  \"id\": \"dddddddd-dddd-dddd-dddd-dddddddddddd\",\n  \"name\": \"Acme\",\n  \"description\": \"Acme web app\",\n  \"client_id\": \"app_demo\",\n  \"status\": \"active\",\n  \"settings\": {\n    \"signup_enabled\": true,\n    \"auth_method\": \"password\",\n    \"password\": {\n      \"min_length\": 8,\n      \"require_mixed_case\": true,\n      \"require_digit\": true\n    },\n    \"otp\": {\n      \"length\": 6,\n      \"ttl_seconds\": 300,\n      \"max_attempts\": 5\n    },\n    \"magic_link\": {\n      \"ttl_seconds\": 900\n    },\n    \"tokens\": {\n      \"access_ttl_seconds\": 900,\n      \"refresh_ttl_seconds\": 2592000\n    },\n    \"email_verification_required\": false,\n    \"blocked_domains\": [],\n    \"mail\": {\n      \"provider\": \"log\",\n      \"from_email\": \"\",\n      \"from_name\": \"\",\n      \"sendgrid\": {},\n      \"smtp\": {\n        \"host\": \"\",\n        \"port\": 0,\n        \"username\": \"\",\n        \"tls\": false,\n        \"skip_verify\": false\n      }\n    }\n  },\n  \"client_secret\": \"one-time-secret\"\n}\n"
+              "body": "{\n  \"id\": \"dddddddd-dddd-dddd-dddd-dddddddddddd\",\n  \"name\": \"Acme\",\n  \"description\": \"Acme web app\",\n  \"client_id\": \"app_demo\",\n  \"status\": \"active\",\n  \"settings\": {\n    \"signup_enabled\": true,\n    \"auth_method\": \"password\",\n    \"password\": {\n      \"min_length\": 8,\n      \"require_mixed_case\": true,\n      \"require_digit\": true\n    },\n    \"otp\": {\n      \"length\": 6,\n      \"ttl_seconds\": 300,\n      \"max_attempts\": 5\n    },\n    \"magic_link\": {\n      \"ttl_seconds\": 900\n    },\n    \"tokens\": {\n      \"access_ttl_seconds\": 900,\n      \"refresh_ttl_seconds\": 2592000\n    },\n    \"email_verification_required\": false,\n    \"blocked_domains\": [],\n    \"mail\": {\n      \"provider\": \"log\",\n      \"from_email\": \"\",\n      \"from_name\": \"\",\n      \"sendgrid\": {}\n    }\n  },\n  \"client_secret\": \"one-time-secret\"\n}\n"
             }
           ],
           "event": [
@@ -1364,14 +1368,14 @@
             "url": "{{baseUrl}}/api/v1/admin/applications",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Acme OTP SMTP\",\n  \"settings\": {\n    \"auth_method\": \"otp\",\n    \"signup_enabled\": true,\n    \"mail\": {\n      \"provider\": \"smtp\",\n      \"from_email\": \"noreply@acme.example\",\n      \"from_name\": \"Acme\",\n      \"smtp\": {\n        \"host\": \"smtp.example.com\",\n        \"port\": 587,\n        \"username\": \"acme\",\n        \"password\": \"smtp-secret\",\n        \"tls\": true,\n        \"skip_verify\": false\n      }\n    }\n  }\n}\n",
+              "raw": "{\n  \"name\": \"Acme OTP SMTP\",\n  \"settings\": {\n    \"auth_method\": \"otp\",\n    \"signup_enabled\": true,\n    \"mail\": {\n      \"provider\": \"smtp\",\n      \"from_email\": \"noreply@acme.example\",\n      \"from_name\": \"Acme\",\n      \"smtp\": {\n        \"host\": \"smtp.example.com\",\n        \"port\": 587,\n        \"username\": \"acme\",\n        \"password\": \"czNjcmV0\",\n        \"tls\": true,\n        \"skip_verify\": false\n      }\n    }\n  }\n}\n",
               "options": {
                 "raw": {
                   "language": "json"
                 }
               }
             },
-            "description": "Create an OTP application with SMTP mail (STARTTLS on 587). `client_secret` is returned once. Requires `X-Authx-Admin-Key`."
+            "description": "Create an OTP application and seed one **inactive** `default` SMTP config from nested `settings.mail.smtp`. Nested SMTP is **not stored** in application JSON after create — manage transports with Admin SMTP configs.\n\n`mail.smtp.password` is the SMTP password as **standard base64** (this example is base64 of `s3cret`, a dummy — not a real secret). Username and password are never returned on the application or on smtp-configs responses. Activate the seeded config (or another) before sending mail.\n\n`client_secret` is returned once. Requires `X-Authx-Admin-Key`."
           },
           "event": [
             {
@@ -1387,6 +1391,49 @@
                   "}"
                 ]
               }
+            }
+          ],
+          "response": [
+            {
+              "name": "201 created (nested smtp stripped; seeds inactive default)",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "X-Authx-Admin-Key",
+                    "value": "{{adminKey}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/admin/applications",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Acme OTP SMTP\",\n  \"settings\": {\n    \"auth_method\": \"otp\",\n    \"signup_enabled\": true,\n    \"mail\": {\n      \"provider\": \"smtp\",\n      \"from_email\": \"noreply@acme.example\",\n      \"from_name\": \"Acme\",\n      \"smtp\": {\n        \"host\": \"smtp.example.com\",\n        \"port\": 587,\n        \"username\": \"acme\",\n        \"password\": \"czNjcmV0\",\n        \"tls\": true,\n        \"skip_verify\": false\n      }\n    }\n  }\n}\n",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "description": "Create an OTP application and seed one **inactive** `default` SMTP config from nested `settings.mail.smtp`. Nested SMTP is **not stored** in application JSON after create — manage transports with Admin SMTP configs.\n\n`mail.smtp.password` is the SMTP password as **standard base64** (this example is base64 of `s3cret`, a dummy — not a real secret). Username and password are never returned on the application or on smtp-configs responses. Activate the seeded config (or another) before sending mail.\n\n`client_secret` is returned once. Requires `X-Authx-Admin-Key`."
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "11111111-1111-1111-1111-111111111111"
+                }
+              ],
+              "body": "{\n  \"id\": \"dddddddd-dddd-dddd-dddd-dddddddddddd\",\n  \"name\": \"Acme OTP SMTP\",\n  \"description\": \"\",\n  \"client_id\": \"app_demo\",\n  \"status\": \"active\",\n  \"settings\": {\n    \"signup_enabled\": true,\n    \"auth_method\": \"otp\",\n    \"password\": {\n      \"min_length\": 8,\n      \"require_mixed_case\": true,\n      \"require_digit\": true\n    },\n    \"otp\": {\n      \"length\": 6,\n      \"ttl_seconds\": 300,\n      \"max_attempts\": 5\n    },\n    \"magic_link\": {\n      \"ttl_seconds\": 900\n    },\n    \"tokens\": {\n      \"access_ttl_seconds\": 900,\n      \"refresh_ttl_seconds\": 2592000\n    },\n    \"email_verification_required\": false,\n    \"blocked_domains\": [],\n    \"mail\": {\n      \"provider\": \"smtp\",\n      \"from_email\": \"noreply@acme.example\",\n      \"from_name\": \"Acme\",\n      \"sendgrid\": {}\n    }\n  },\n  \"client_secret\": \"one-time-secret\"\n}\n"
             }
           ]
         },
@@ -1487,11 +1534,11 @@
               }
             ],
             "url": "{{baseUrl}}/api/v1/admin/applications/{{applicationId}}",
-            "description": "Returns the application including settings. Mail secrets are masked (`********`). `settings.blocked_domains` is the current blocklist (empty if none).\n\nRequires `X-Authx-Admin-Key`."
+            "description": "Returns the application including settings. SendGrid `api_key` is masked (`********`) when stored. SMTP username and password are **never returned**. Nested `settings.mail.smtp` is not stored on the application; list and manage transports with Admin SMTP configs. `settings.blocked_domains` is the current blocklist (empty if none).\n\nRequires `X-Authx-Admin-Key`."
           },
           "response": [
             {
-              "name": "200 application (secrets masked)",
+              "name": "200 application (SendGrid key masked; no SMTP credentials)",
               "originalRequest": {
                 "method": "GET",
                 "header": [
@@ -1501,7 +1548,7 @@
                   }
                 ],
                 "url": "{{baseUrl}}/api/v1/admin/applications/{{applicationId}}",
-                "description": "Returns the application including settings. Mail secrets are masked (`********`). `settings.blocked_domains` is the current blocklist (empty if none).\n\nRequires `X-Authx-Admin-Key`."
+                "description": "Returns the application including settings. SendGrid `api_key` is masked (`********`) when stored. SMTP username and password are **never returned**. Nested `settings.mail.smtp` is not stored on the application; list and manage transports with Admin SMTP configs. `settings.blocked_domains` is the current blocklist (empty if none).\n\nRequires `X-Authx-Admin-Key`."
               },
               "status": "OK",
               "code": 200,
@@ -1516,7 +1563,7 @@
                   "value": "11111111-1111-1111-1111-111111111111"
                 }
               ],
-              "body": "{\n  \"id\": \"dddddddd-dddd-dddd-dddd-dddddddddddd\",\n  \"name\": \"Acme\",\n  \"description\": \"Acme web app\",\n  \"client_id\": \"app_demo\",\n  \"status\": \"active\",\n  \"settings\": {\n    \"signup_enabled\": true,\n    \"auth_method\": \"password\",\n    \"password\": {\n      \"min_length\": 8,\n      \"require_mixed_case\": true,\n      \"require_digit\": true\n    },\n    \"otp\": {\n      \"length\": 6,\n      \"ttl_seconds\": 300,\n      \"max_attempts\": 5\n    },\n    \"magic_link\": {\n      \"ttl_seconds\": 900\n    },\n    \"tokens\": {\n      \"access_ttl_seconds\": 900,\n      \"refresh_ttl_seconds\": 2592000\n    },\n    \"email_verification_required\": false,\n    \"blocked_domains\": [\n      \"blocked.com\",\n      \"evil.org\"\n    ],\n    \"mail\": {\n      \"provider\": \"sendgrid\",\n      \"from_email\": \"noreply@acme.example\",\n      \"from_name\": \"Acme\",\n      \"sendgrid\": {\n        \"api_key\": \"********\"\n      },\n      \"smtp\": {\n        \"host\": \"\",\n        \"port\": 0,\n        \"username\": \"\",\n        \"tls\": false,\n        \"skip_verify\": false\n      }\n    }\n  }\n}\n"
+              "body": "{\n  \"id\": \"dddddddd-dddd-dddd-dddd-dddddddddddd\",\n  \"name\": \"Acme\",\n  \"description\": \"Acme web app\",\n  \"client_id\": \"app_demo\",\n  \"status\": \"active\",\n  \"settings\": {\n    \"signup_enabled\": true,\n    \"auth_method\": \"password\",\n    \"password\": {\n      \"min_length\": 8,\n      \"require_mixed_case\": true,\n      \"require_digit\": true\n    },\n    \"otp\": {\n      \"length\": 6,\n      \"ttl_seconds\": 300,\n      \"max_attempts\": 5\n    },\n    \"magic_link\": {\n      \"ttl_seconds\": 900\n    },\n    \"tokens\": {\n      \"access_ttl_seconds\": 900,\n      \"refresh_ttl_seconds\": 2592000\n    },\n    \"email_verification_required\": false,\n    \"blocked_domains\": [\n      \"blocked.com\",\n      \"evil.org\"\n    ],\n    \"mail\": {\n      \"provider\": \"sendgrid\",\n      \"from_email\": \"noreply@acme.example\",\n      \"from_name\": \"Acme\",\n      \"sendgrid\": {\n        \"api_key\": \"********\"\n      }\n    }\n  }\n}\n"
             },
             {
               "name": "404 not found",
@@ -1529,7 +1576,7 @@
                   }
                 ],
                 "url": "{{baseUrl}}/api/v1/admin/applications/{{applicationId}}",
-                "description": "Returns the application including settings. Mail secrets are masked (`********`). `settings.blocked_domains` is the current blocklist (empty if none).\n\nRequires `X-Authx-Admin-Key`."
+                "description": "Returns the application including settings. SendGrid `api_key` is masked (`********`) when stored. SMTP username and password are **never returned**. Nested `settings.mail.smtp` is not stored on the application; list and manage transports with Admin SMTP configs. `settings.blocked_domains` is the current blocklist (empty if none).\n\nRequires `X-Authx-Admin-Key`."
               },
               "status": "Not Found",
               "code": 404,
@@ -1572,7 +1619,7 @@
                 }
               }
             },
-            "description": "Partial update of name, description, status, and settings.\n\n**Merge rules**\n- Nested settings are merged: omit a field to keep the stored value.\n- `blocked_domains`: sending a list **replaces** the stored list; omitting the field keeps the current list. `[]` allows all domains.\n- Mail secrets (SendGrid `api_key`, SMTP `password`) are never returned in plaintext. GET/PATCH responses show `********` when a secret is stored.\n- Posting `********` (or omitting the secret) **does not overwrite** the stored secret.\n\nRequires `X-Authx-Admin-Key`."
+            "description": "Partial update of name, description, status, and settings.\n\n**Merge rules**\n- Nested settings are merged: omit a field to keep the stored value.\n- `blocked_domains`: sending a list **replaces** the stored list; omitting the field keeps the current list. `[]` allows all domains.\n- SendGrid `api_key` is never returned in plaintext. GET/PATCH responses show `********` when a key is stored. Posting `********` (or omitting the key) **does not overwrite** the stored secret.\n- SMTP username and password are **never returned**. Nested `settings.mail.smtp` is stripped from application JSON; create, update, and activate transports with Admin SMTP configs. On **create**, nested smtp still seeds one inactive `default` config (`password` must be standard base64).\n\nRequires `X-Authx-Admin-Key`."
           },
           "response": [
             {
@@ -1599,7 +1646,7 @@
                     }
                   }
                 },
-                "description": "Partial update of name, description, status, and settings.\n\n**Merge rules**\n- Nested settings are merged: omit a field to keep the stored value.\n- `blocked_domains`: sending a list **replaces** the stored list; omitting the field keeps the current list. `[]` allows all domains.\n- Mail secrets (SendGrid `api_key`, SMTP `password`) are never returned in plaintext. GET/PATCH responses show `********` when a secret is stored.\n- Posting `********` (or omitting the secret) **does not overwrite** the stored secret.\n\nRequires `X-Authx-Admin-Key`."
+                "description": "Partial update of name, description, status, and settings.\n\n**Merge rules**\n- Nested settings are merged: omit a field to keep the stored value.\n- `blocked_domains`: sending a list **replaces** the stored list; omitting the field keeps the current list. `[]` allows all domains.\n- SendGrid `api_key` is never returned in plaintext. GET/PATCH responses show `********` when a key is stored. Posting `********` (or omitting the key) **does not overwrite** the stored secret.\n- SMTP username and password are **never returned**. Nested `settings.mail.smtp` is stripped from application JSON; create, update, and activate transports with Admin SMTP configs. On **create**, nested smtp still seeds one inactive `default` config (`password` must be standard base64).\n\nRequires `X-Authx-Admin-Key`."
               },
               "status": "OK",
               "code": 200,
@@ -1614,7 +1661,7 @@
                   "value": "11111111-1111-1111-1111-111111111111"
                 }
               ],
-              "body": "{\n  \"id\": \"dddddddd-dddd-dddd-dddd-dddddddddddd\",\n  \"name\": \"Acme\",\n  \"description\": \"Acme web app\",\n  \"client_id\": \"app_demo\",\n  \"status\": \"active\",\n  \"settings\": {\n    \"signup_enabled\": true,\n    \"auth_method\": \"password\",\n    \"password\": {\n      \"min_length\": 8,\n      \"require_mixed_case\": true,\n      \"require_digit\": true\n    },\n    \"otp\": {\n      \"length\": 6,\n      \"ttl_seconds\": 300,\n      \"max_attempts\": 5\n    },\n    \"magic_link\": {\n      \"ttl_seconds\": 900\n    },\n    \"tokens\": {\n      \"access_ttl_seconds\": 900,\n      \"refresh_ttl_seconds\": 2592000\n    },\n    \"email_verification_required\": false,\n    \"blocked_domains\": [\n      \"blocked.com\",\n      \"evil.org\"\n    ],\n    \"mail\": {\n      \"provider\": \"sendgrid\",\n      \"from_email\": \"noreply@acme.example\",\n      \"from_name\": \"Acme\",\n      \"sendgrid\": {\n        \"api_key\": \"********\"\n      },\n      \"smtp\": {\n        \"host\": \"\",\n        \"port\": 0,\n        \"username\": \"\",\n        \"tls\": false,\n        \"skip_verify\": false\n      }\n    }\n  }\n}\n"
+              "body": "{\n  \"id\": \"dddddddd-dddd-dddd-dddd-dddddddddddd\",\n  \"name\": \"Acme\",\n  \"description\": \"Acme web app\",\n  \"client_id\": \"app_demo\",\n  \"status\": \"active\",\n  \"settings\": {\n    \"signup_enabled\": true,\n    \"auth_method\": \"password\",\n    \"password\": {\n      \"min_length\": 8,\n      \"require_mixed_case\": true,\n      \"require_digit\": true\n    },\n    \"otp\": {\n      \"length\": 6,\n      \"ttl_seconds\": 300,\n      \"max_attempts\": 5\n    },\n    \"magic_link\": {\n      \"ttl_seconds\": 900\n    },\n    \"tokens\": {\n      \"access_ttl_seconds\": 900,\n      \"refresh_ttl_seconds\": 2592000\n    },\n    \"email_verification_required\": false,\n    \"blocked_domains\": [\n      \"blocked.com\",\n      \"evil.org\"\n    ],\n    \"mail\": {\n      \"provider\": \"sendgrid\",\n      \"from_email\": \"noreply@acme.example\",\n      \"from_name\": \"Acme\",\n      \"sendgrid\": {\n        \"api_key\": \"********\"\n      }\n    }\n  }\n}\n"
             }
           ]
         },
@@ -1642,34 +1689,7 @@
                 }
               }
             },
-            "description": "Partial update of name, description, status, and settings.\n\n**Merge rules**\n- Nested settings are merged: omit a field to keep the stored value.\n- `blocked_domains`: sending a list **replaces** the stored list; omitting the field keeps the current list. `[]` allows all domains.\n- Mail secrets (SendGrid `api_key`, SMTP `password`) are never returned in plaintext. GET/PATCH responses show `********` when a secret is stored.\n- Posting `********` (or omitting the secret) **does not overwrite** the stored secret.\n\nRequires `X-Authx-Admin-Key`."
-          }
-        },
-        {
-          "name": "Update application (SMTP)",
-          "request": {
-            "method": "PATCH",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "X-Authx-Admin-Key",
-                "value": "{{adminKey}}"
-              }
-            ],
-            "url": "{{baseUrl}}/api/v1/admin/applications/{{applicationId}}",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"settings\": {\n    \"mail\": {\n      \"provider\": \"smtp\",\n      \"from_email\": \"noreply@acme.example\",\n      \"from_name\": \"Acme\",\n      \"smtp\": {\n        \"host\": \"smtp.example.com\",\n        \"port\": 587,\n        \"username\": \"acme\",\n        \"password\": \"smtp-secret\",\n        \"tls\": true,\n        \"skip_verify\": false\n      }\n    }\n  }\n}\n",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "description": "Partial update of name, description, status, and settings.\n\n**Merge rules**\n- Nested settings are merged: omit a field to keep the stored value.\n- `blocked_domains`: sending a list **replaces** the stored list; omitting the field keeps the current list. `[]` allows all domains.\n- Mail secrets (SendGrid `api_key`, SMTP `password`) are never returned in plaintext. GET/PATCH responses show `********` when a secret is stored.\n- Posting `********` (or omitting the secret) **does not overwrite** the stored secret.\n\nRequires `X-Authx-Admin-Key`."
+            "description": "Partial update of name, description, status, and settings.\n\n**Merge rules**\n- Nested settings are merged: omit a field to keep the stored value.\n- `blocked_domains`: sending a list **replaces** the stored list; omitting the field keeps the current list. `[]` allows all domains.\n- SendGrid `api_key` is never returned in plaintext. GET/PATCH responses show `********` when a key is stored. Posting `********` (or omitting the key) **does not overwrite** the stored secret.\n- SMTP username and password are **never returned**. Nested `settings.mail.smtp` is stripped from application JSON; create, update, and activate transports with Admin SMTP configs. On **create**, nested smtp still seeds one inactive `default` config (`password` must be standard base64).\n\nRequires `X-Authx-Admin-Key`."
           }
         },
         {
@@ -1696,7 +1716,7 @@
                 }
               }
             },
-            "description": "Partial update of name, description, status, and settings.\n\n**Merge rules**\n- Nested settings are merged: omit a field to keep the stored value.\n- `blocked_domains`: sending a list **replaces** the stored list; omitting the field keeps the current list. `[]` allows all domains.\n- Mail secrets (SendGrid `api_key`, SMTP `password`) are never returned in plaintext. GET/PATCH responses show `********` when a secret is stored.\n- Posting `********` (or omitting the secret) **does not overwrite** the stored secret.\n\nRequires `X-Authx-Admin-Key`.\n\nThis body **replaces** the stored `blocked_domains` list. Omit the field to keep the current list."
+            "description": "Partial update of name, description, status, and settings.\n\n**Merge rules**\n- Nested settings are merged: omit a field to keep the stored value.\n- `blocked_domains`: sending a list **replaces** the stored list; omitting the field keeps the current list. `[]` allows all domains.\n- SendGrid `api_key` is never returned in plaintext. GET/PATCH responses show `********` when a key is stored. Posting `********` (or omitting the key) **does not overwrite** the stored secret.\n- SMTP username and password are **never returned**. Nested `settings.mail.smtp` is stripped from application JSON; create, update, and activate transports with Admin SMTP configs. On **create**, nested smtp still seeds one inactive `default` config (`password` must be standard base64).\n\nRequires `X-Authx-Admin-Key`.\n\nThis body **replaces** the stored `blocked_domains` list. Omit the field to keep the current list."
           }
         },
         {
@@ -1723,9 +1743,548 @@
                 }
               }
             },
-            "description": "Partial update of name, description, status, and settings.\n\n**Merge rules**\n- Nested settings are merged: omit a field to keep the stored value.\n- `blocked_domains`: sending a list **replaces** the stored list; omitting the field keeps the current list. `[]` allows all domains.\n- Mail secrets (SendGrid `api_key`, SMTP `password`) are never returned in plaintext. GET/PATCH responses show `********` when a secret is stored.\n- Posting `********` (or omitting the secret) **does not overwrite** the stored secret.\n\nRequires `X-Authx-Admin-Key`.\n\nCombined example: update OTP, replace `blocked_domains`, and post `********` for the SendGrid key so the stored secret is left unchanged."
+            "description": "Partial update of name, description, status, and settings.\n\n**Merge rules**\n- Nested settings are merged: omit a field to keep the stored value.\n- `blocked_domains`: sending a list **replaces** the stored list; omitting the field keeps the current list. `[]` allows all domains.\n- SendGrid `api_key` is never returned in plaintext. GET/PATCH responses show `********` when a key is stored. Posting `********` (or omitting the key) **does not overwrite** the stored secret.\n- SMTP username and password are **never returned**. Nested `settings.mail.smtp` is stripped from application JSON; create, update, and activate transports with Admin SMTP configs. On **create**, nested smtp still seeds one inactive `default` config (`password` must be standard base64).\n\nRequires `X-Authx-Admin-Key`.\n\nCombined example: update OTP, replace `blocked_domains`, and post `********` for the SendGrid key so the stored secret is left unchanged."
           },
           "description": "OTP + replace `blocked_domains` + post `********` so the SendGrid key is not overwritten."
+        }
+      ]
+    },
+    {
+      "name": "Admin SMTP configs",
+      "description": "SMTP transports for an application. Header: `X-Authx-Admin-Key` only (no client credentials).\n\nAn application can have multiple configs. New configs are always **inactive**. Activate one with POST `.../smtp-configs/{sid}/activate` — that call deactivates the others. Sending mail uses the active config; if none is active, auth returns `mail_not_configured`.\n\n`password` is **base64-encoded** by the client. Username and password are encrypted at rest and **omitted from all responses**.\n\nNested `settings.mail.smtp` on application create still seeds one inactive `default` config; it is not stored in application JSON.",
+      "item": [
+        {
+          "name": "Create SMTP config",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Authx-Admin-Key",
+                "value": "{{adminKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/applications/{{applicationId}}/smtp-configs",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"primary\",\n  \"host\": \"smtp.example.com\",\n  \"port\": 587,\n  \"username\": \"acme\",\n  \"password\": \"czNjcmV0\",\n  \"tls\": true,\n  \"skip_verify\": false\n}\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Creates an **inactive** SMTP configuration for the application. New configs are always inactive until you POST `.../smtp-configs/{sid}/activate`.\n\n`password` is the SMTP password as **standard base64** (this example is base64 of `s3cret`, a dummy — not a real secret). Username and password are encrypted at rest and **omitted from the response**.\n\nOnly one config can be active at a time. Activating this one deactivates the others.\n\nThis request's test script saves `smtpConfigId`.\n\nRequires `X-Authx-Admin-Key`."
+          },
+          "response": [
+            {
+              "name": "201 created (inactive, no credentials)",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "X-Authx-Admin-Key",
+                    "value": "{{adminKey}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/admin/applications/{{applicationId}}/smtp-configs",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"primary\",\n  \"host\": \"smtp.example.com\",\n  \"port\": 587,\n  \"username\": \"acme\",\n  \"password\": \"czNjcmV0\",\n  \"tls\": true,\n  \"skip_verify\": false\n}\n",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "description": "Creates an **inactive** SMTP configuration for the application. New configs are always inactive until you POST `.../smtp-configs/{sid}/activate`.\n\n`password` is the SMTP password as **standard base64** (this example is base64 of `s3cret`, a dummy — not a real secret). Username and password are encrypted at rest and **omitted from the response**.\n\nOnly one config can be active at a time. Activating this one deactivates the others.\n\nThis request's test script saves `smtpConfigId`.\n\nRequires `X-Authx-Admin-Key`."
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "11111111-1111-1111-1111-111111111111"
+                }
+              ],
+              "body": "{\n  \"id\": \"eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee\",\n  \"name\": \"primary\",\n  \"host\": \"smtp.example.com\",\n  \"port\": 587,\n  \"tls\": true,\n  \"skip_verify\": false,\n  \"active\": false\n}\n"
+            },
+            {
+              "name": "400 password not base64",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "X-Authx-Admin-Key",
+                    "value": "{{adminKey}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/admin/applications/{{applicationId}}/smtp-configs",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"primary\",\n  \"host\": \"smtp.example.com\",\n  \"port\": 587,\n  \"username\": \"acme\",\n  \"password\": \"not-base64!\",\n  \"tls\": true,\n  \"skip_verify\": false\n}\n",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "description": "Creates an **inactive** SMTP configuration for the application. New configs are always inactive until you POST `.../smtp-configs/{sid}/activate`.\n\n`password` is the SMTP password as **standard base64** (this example is base64 of `s3cret`, a dummy — not a real secret). Username and password are encrypted at rest and **omitted from the response**.\n\nOnly one config can be active at a time. Activating this one deactivates the others.\n\nThis request's test script saves `smtpConfigId`.\n\nRequires `X-Authx-Admin-Key`."
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "11111111-1111-1111-1111-111111111111"
+                }
+              ],
+              "body": "{\n  \"code\": \"validation_error\",\n  \"error\": \"mail.smtp.password must be base64-encoded\"\n}\n"
+            },
+            {
+              "name": "404 application not found",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "X-Authx-Admin-Key",
+                    "value": "{{adminKey}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/admin/applications/{{applicationId}}/smtp-configs",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"primary\",\n  \"host\": \"smtp.example.com\",\n  \"port\": 587,\n  \"username\": \"acme\",\n  \"password\": \"czNjcmV0\",\n  \"tls\": true,\n  \"skip_verify\": false\n}\n",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "description": "Creates an **inactive** SMTP configuration for the application. New configs are always inactive until you POST `.../smtp-configs/{sid}/activate`.\n\n`password` is the SMTP password as **standard base64** (this example is base64 of `s3cret`, a dummy — not a real secret). Username and password are encrypted at rest and **omitted from the response**.\n\nOnly one config can be active at a time. Activating this one deactivates the others.\n\nThis request's test script saves `smtpConfigId`.\n\nRequires `X-Authx-Admin-Key`."
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "11111111-1111-1111-1111-111111111111"
+                }
+              ],
+              "body": "{\n  \"code\": \"not_found\",\n  \"error\": \"application not found\"\n}\n"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const json = pm.response.json();",
+                  "  if (json.id) pm.collectionVariables.set('smtpConfigId', json.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List SMTP configs",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Authx-Admin-Key",
+                "value": "{{adminKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/applications/{{applicationId}}/smtp-configs",
+            "description": "Lists SMTP configurations for the application. Username and password are **never included**. New configs are inactive until activated; at most one config is active. If none is active, sending mail fails with `mail_not_configured`.\n\nRequires `X-Authx-Admin-Key`."
+          },
+          "response": [
+            {
+              "name": "200 smtp_configs (no credentials)",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "X-Authx-Admin-Key",
+                    "value": "{{adminKey}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/admin/applications/{{applicationId}}/smtp-configs",
+                "description": "Lists SMTP configurations for the application. Username and password are **never included**. New configs are inactive until activated; at most one config is active. If none is active, sending mail fails with `mail_not_configured`.\n\nRequires `X-Authx-Admin-Key`."
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "11111111-1111-1111-1111-111111111111"
+                }
+              ],
+              "body": "{\n  \"smtp_configs\": [\n    {\n      \"id\": \"eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee\",\n      \"name\": \"primary\",\n      \"host\": \"smtp.example.com\",\n      \"port\": 587,\n      \"tls\": true,\n      \"skip_verify\": false,\n      \"active\": true\n    },\n    {\n      \"id\": \"ffffffff-ffff-ffff-ffff-ffffffffffff\",\n      \"name\": \"backup\",\n      \"host\": \"smtp-backup.example.com\",\n      \"port\": 587,\n      \"tls\": true,\n      \"skip_verify\": false,\n      \"active\": false\n    }\n  ]\n}\n"
+            }
+          ]
+        },
+        {
+          "name": "Get SMTP config",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Authx-Admin-Key",
+                "value": "{{adminKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/applications/{{applicationId}}/smtp-configs/{{smtpConfigId}}",
+            "description": "Returns one SMTP configuration. Username and password are **never included** (encrypted at rest).\n\nRequires `X-Authx-Admin-Key`."
+          },
+          "response": [
+            {
+              "name": "200 smtp config (no credentials)",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "X-Authx-Admin-Key",
+                    "value": "{{adminKey}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/admin/applications/{{applicationId}}/smtp-configs/{{smtpConfigId}}",
+                "description": "Returns one SMTP configuration. Username and password are **never included** (encrypted at rest).\n\nRequires `X-Authx-Admin-Key`."
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "11111111-1111-1111-1111-111111111111"
+                }
+              ],
+              "body": "{\n  \"id\": \"eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee\",\n  \"name\": \"primary\",\n  \"host\": \"smtp.example.com\",\n  \"port\": 587,\n  \"tls\": true,\n  \"skip_verify\": false,\n  \"active\": false\n}\n"
+            },
+            {
+              "name": "404 not found",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "X-Authx-Admin-Key",
+                    "value": "{{adminKey}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/admin/applications/{{applicationId}}/smtp-configs/{{smtpConfigId}}",
+                "description": "Returns one SMTP configuration. Username and password are **never included** (encrypted at rest).\n\nRequires `X-Authx-Admin-Key`."
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "11111111-1111-1111-1111-111111111111"
+                }
+              ],
+              "body": "{\n  \"code\": \"not_found\",\n  \"error\": \"smtp configuration not found\"\n}\n"
+            }
+          ]
+        },
+        {
+          "name": "Update SMTP config",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Authx-Admin-Key",
+                "value": "{{adminKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/applications/{{applicationId}}/smtp-configs/{{smtpConfigId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"primary-east\",\n  \"host\": \"smtp-east.example.com\"\n}\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Partial update of an SMTP configuration. Omitted fields keep their stored values. A new `password` must be **standard base64**; omit `password` to leave the stored secret unchanged.\n\nUsername and password are **never returned**. This does not change `active`; use POST `.../activate` to make this the live transport (only one active at a time).\n\nRequires `X-Authx-Admin-Key`."
+          },
+          "response": [
+            {
+              "name": "200 updated (no credentials)",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "X-Authx-Admin-Key",
+                    "value": "{{adminKey}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/admin/applications/{{applicationId}}/smtp-configs/{{smtpConfigId}}",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"primary-east\",\n  \"host\": \"smtp-east.example.com\"\n}\n",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "description": "Partial update of an SMTP configuration. Omitted fields keep their stored values. A new `password` must be **standard base64**; omit `password` to leave the stored secret unchanged.\n\nUsername and password are **never returned**. This does not change `active`; use POST `.../activate` to make this the live transport (only one active at a time).\n\nRequires `X-Authx-Admin-Key`."
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "11111111-1111-1111-1111-111111111111"
+                }
+              ],
+              "body": "{\n  \"id\": \"eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee\",\n  \"name\": \"primary-east\",\n  \"host\": \"smtp-east.example.com\",\n  \"port\": 587,\n  \"tls\": true,\n  \"skip_verify\": false,\n  \"active\": false\n}\n"
+            },
+            {
+              "name": "400 password not base64",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "X-Authx-Admin-Key",
+                    "value": "{{adminKey}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/admin/applications/{{applicationId}}/smtp-configs/{{smtpConfigId}}",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"password\": \"not-base64!\"\n}\n",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "description": "Partial update of an SMTP configuration. Omitted fields keep their stored values. A new `password` must be **standard base64**; omit `password` to leave the stored secret unchanged.\n\nUsername and password are **never returned**. This does not change `active`; use POST `.../activate` to make this the live transport (only one active at a time).\n\nRequires `X-Authx-Admin-Key`."
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "11111111-1111-1111-1111-111111111111"
+                }
+              ],
+              "body": "{\n  \"code\": \"validation_error\",\n  \"error\": \"mail.smtp.password must be base64-encoded\"\n}\n"
+            }
+          ]
+        },
+        {
+          "name": "Activate SMTP config",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Authx-Admin-Key",
+                "value": "{{adminKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/applications/{{applicationId}}/smtp-configs/{{smtpConfigId}}/activate",
+            "description": "Marks this configuration **active** and deactivates every other SMTP config for the application in one transaction. Sending mail uses the active configuration. New configs stay inactive until this call.\n\nUsername and password are **never returned**.\n\nRequires `X-Authx-Admin-Key`."
+          },
+          "response": [
+            {
+              "name": "200 activated (no credentials)",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "X-Authx-Admin-Key",
+                    "value": "{{adminKey}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/admin/applications/{{applicationId}}/smtp-configs/{{smtpConfigId}}/activate",
+                "description": "Marks this configuration **active** and deactivates every other SMTP config for the application in one transaction. Sending mail uses the active configuration. New configs stay inactive until this call.\n\nUsername and password are **never returned**.\n\nRequires `X-Authx-Admin-Key`."
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "11111111-1111-1111-1111-111111111111"
+                }
+              ],
+              "body": "{\n  \"id\": \"eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee\",\n  \"name\": \"primary\",\n  \"host\": \"smtp.example.com\",\n  \"port\": 587,\n  \"tls\": true,\n  \"skip_verify\": false,\n  \"active\": true\n}\n"
+            },
+            {
+              "name": "404 not found",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "X-Authx-Admin-Key",
+                    "value": "{{adminKey}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/admin/applications/{{applicationId}}/smtp-configs/{{smtpConfigId}}/activate",
+                "description": "Marks this configuration **active** and deactivates every other SMTP config for the application in one transaction. Sending mail uses the active configuration. New configs stay inactive until this call.\n\nUsername and password are **never returned**.\n\nRequires `X-Authx-Admin-Key`."
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "11111111-1111-1111-1111-111111111111"
+                }
+              ],
+              "body": "{\n  \"code\": \"not_found\",\n  \"error\": \"smtp configuration not found\"\n}\n"
+            }
+          ]
+        },
+        {
+          "name": "Delete SMTP config",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "X-Authx-Admin-Key",
+                "value": "{{adminKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/applications/{{applicationId}}/smtp-configs/{{smtpConfigId}}",
+            "description": "Deletes an SMTP configuration. Returns **204** with an empty body. If this was the active config, the application has no active transport until another is activated (`mail_not_configured` on send).\n\nRequires `X-Authx-Admin-Key`."
+          },
+          "response": [
+            {
+              "name": "204 deleted",
+              "originalRequest": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "X-Authx-Admin-Key",
+                    "value": "{{adminKey}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/admin/applications/{{applicationId}}/smtp-configs/{{smtpConfigId}}",
+                "description": "Deletes an SMTP configuration. Returns **204** with an empty body. If this was the active config, the application has no active transport until another is activated (`mail_not_configured` on send).\n\nRequires `X-Authx-Admin-Key`."
+              },
+              "status": "No Content",
+              "code": 204,
+              "_postman_previewlanguage": "text",
+              "header": [
+                {
+                  "key": "X-Request-Id",
+                  "value": "11111111-1111-1111-1111-111111111111"
+                }
+              ],
+              "body": ""
+            },
+            {
+              "name": "404 not found",
+              "originalRequest": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "X-Authx-Admin-Key",
+                    "value": "{{adminKey}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/admin/applications/{{applicationId}}/smtp-configs/{{smtpConfigId}}",
+                "description": "Deletes an SMTP configuration. Returns **204** with an empty body. If this was the active config, the application has no active transport until another is activated (`mail_not_configured` on send).\n\nRequires `X-Authx-Admin-Key`."
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "11111111-1111-1111-1111-111111111111"
+                }
+              ],
+              "body": "{\n  \"code\": \"not_found\",\n  \"error\": \"smtp configuration not found\"\n}\n"
+            }
+          ]
         }
       ]
     },
