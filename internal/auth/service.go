@@ -231,7 +231,7 @@ func (s *Service) sendOTPChallenge(ctx context.Context, application *app.Applica
 	if err != nil {
 		return nil, err
 	}
-	if err := s.mailer.SendOTP(ctx, application.Settings.Mail, email, code); err != nil {
+	if err := s.mailer.SendOTP(mail.WithApplicationID(ctx, application.ID.String()), application.Settings.Mail, email, code); err != nil {
 		return nil, err
 	}
 	return challengeResult(challenge.TypeOTP, issuedTTL), nil
@@ -265,7 +265,7 @@ func (s *Service) sendMagicLinkChallenge(ctx context.Context, application *app.A
 		return nil, err
 	}
 	link := magicLinkURL(s.baseURL, tokenValue, email)
-	if err := s.mailer.SendMagicLink(ctx, application.Settings.Mail, email, link); err != nil {
+	if err := s.mailer.SendMagicLink(mail.WithApplicationID(ctx, application.ID.String()), application.Settings.Mail, email, link); err != nil {
 		return nil, err
 	}
 	return challengeResult(challenge.TypeMagicLink, issuedTTL), nil
