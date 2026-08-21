@@ -21,7 +21,7 @@ func (srv *Server) handleCreateSMTPConfig(w http.ResponseWriter, r *http.Request
 		httpx.WriteError(w, http.StatusBadRequest, "invalid_json", "invalid request body")
 		return
 	}
-	cfg, err := srv.apps.CreateSMTPConfig(r.Context(), applicationID, body)
+	cfg, err := srv.smtp.Create(r.Context(), applicationID, body)
 	if err != nil {
 		writeSMTPError(w, r, srv, err)
 		return
@@ -34,7 +34,7 @@ func (srv *Server) handleListSMTPConfigs(w http.ResponseWriter, r *http.Request)
 	if !ok {
 		return
 	}
-	cfgs, err := srv.apps.ListSMTPConfigs(r.Context(), applicationID)
+	cfgs, err := srv.smtp.List(r.Context(), applicationID)
 	if err != nil {
 		writeSMTPError(w, r, srv, err)
 		return
@@ -51,7 +51,7 @@ func (srv *Server) handleGetSMTPConfig(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	cfg, err := srv.apps.GetSMTPConfig(r.Context(), applicationID, configID)
+	cfg, err := srv.smtp.Get(r.Context(), applicationID, configID)
 	if err != nil {
 		writeSMTPError(w, r, srv, err)
 		return
@@ -69,7 +69,7 @@ func (srv *Server) handleUpdateSMTPConfig(w http.ResponseWriter, r *http.Request
 		httpx.WriteError(w, http.StatusBadRequest, "invalid_json", "invalid request body")
 		return
 	}
-	cfg, err := srv.apps.UpdateSMTPConfig(r.Context(), applicationID, configID, body)
+	cfg, err := srv.smtp.Update(r.Context(), applicationID, configID, body)
 	if err != nil {
 		writeSMTPError(w, r, srv, err)
 		return
@@ -82,7 +82,7 @@ func (srv *Server) handleActivateSMTPConfig(w http.ResponseWriter, r *http.Reque
 	if !ok {
 		return
 	}
-	cfg, err := srv.apps.ActivateSMTPConfig(r.Context(), applicationID, configID)
+	cfg, err := srv.smtp.Activate(r.Context(), applicationID, configID)
 	if err != nil {
 		writeSMTPError(w, r, srv, err)
 		return
@@ -95,7 +95,7 @@ func (srv *Server) handleDeleteSMTPConfig(w http.ResponseWriter, r *http.Request
 	if !ok {
 		return
 	}
-	if err := srv.apps.DeleteSMTPConfig(r.Context(), applicationID, configID); err != nil {
+	if err := srv.smtp.Delete(r.Context(), applicationID, configID); err != nil {
 		writeSMTPError(w, r, srv, err)
 		return
 	}

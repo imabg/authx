@@ -274,7 +274,7 @@ func TestHandleAdminUpdateUser(t *testing.T) {
 
 	cfg := config.ApplicationConfig{}
 	cfg.AdminAPIKey = "dev-admin-key"
-	srv := &Server{users: usersRepo, Config: cfg}
+	srv := &Server{users: users.NewService(usersRepo), Config: cfg}
 	srv.setupRouter()
 
 	req := httptest.NewRequest(http.MethodPatch, "/api/v1/admin/users/"+id.String(), strings.NewReader(`{"first_name":"Grace"}`))
@@ -291,6 +291,7 @@ func TestHandleUpdateMe(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	usersRepo := usersmock.NewMockIUserRepository(ctrl)
 	user := users.User{ID: uuid.MustParse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"), FirstName: "Ada", LastName: "Lovelace"}
+	usersRepo.EXPECT().GetByID(gomock.Any(), user.ID).Return(user, nil)
 	usersRepo.EXPECT().Update(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ any, updated users.User) (users.User, error) {
 			if updated.LastName != "Hopper" {
@@ -299,7 +300,7 @@ func TestHandleUpdateMe(t *testing.T) {
 			return updated, nil
 		},
 	)
-	srv := &Server{users: usersRepo}
+	srv := &Server{users: users.NewService(usersRepo)}
 	req := httptest.NewRequest(http.MethodPatch, "/api/v1/me", strings.NewReader(`{"last_name":"Hopper"}`))
 	req.Header.Set("Content-Type", "application/json")
 	req = req.WithContext(withUser(req.Context(), user))
@@ -311,8 +312,11 @@ func TestHandleUpdateMe(t *testing.T) {
 }
 
 func TestHandleUpdateMeValidation(t *testing.T) {
-	srv := &Server{}
-	user := users.User{FirstName: "Ada"}
+	ctrl := gomock.NewController(t)
+	usersRepo := usersmock.NewMockIUserRepository(ctrl)
+	user := users.User{ID: uuid.MustParse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"), FirstName: "Ada"}
+	usersRepo.EXPECT().GetByID(gomock.Any(), user.ID).Return(user, nil)
+	srv := &Server{users: users.NewService(usersRepo)}
 	req := httptest.NewRequest(http.MethodPatch, "/api/v1/me", strings.NewReader(`{"first_name":"`+strings.Repeat("a", 26)+`"}`))
 	req.Header.Set("Content-Type", "application/json")
 	req = req.WithContext(withUser(req.Context(), user))
