@@ -216,7 +216,7 @@ func TestServiceUpdate(t *testing.T) {
 		}
 	})
 
-	t.Run("encrypts smtp credentials at rest", func(t *testing.T) {
+	t.Run("strips nested smtp from application settings", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		repo := mock.NewMockAppRepository(ctrl)
 		box, err := secret.NewBox("00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff")
@@ -226,11 +226,11 @@ func TestServiceUpdate(t *testing.T) {
 		repo.EXPECT().GetByID(gomock.Any(), id).Return(stored, nil)
 		repo.EXPECT().Update(gomock.Any(), gomock.Any()).DoAndReturn(
 			func(_ context.Context, application app.Application) (app.Application, error) {
-				if application.Settings.Mail.SMTP.Username == "acme" || application.Settings.Mail.SMTP.Password == "s3cret" {
-					t.Fatalf("stored plaintext credentials: %+v", application.Settings.Mail.SMTP)
+				if application.Settings.Mail.SMTP.Host != "" || application.Settings.Mail.SMTP.Username != "" || application.Settings.Mail.SMTP.Password != "" {
+					t.Fatalf("nested smtp should be stored on smtp_configs, got %+v", application.Settings.Mail.SMTP)
 				}
-				if !secret.IsEncrypted(application.Settings.Mail.SMTP.Username) || !secret.IsEncrypted(application.Settings.Mail.SMTP.Password) {
-					t.Fatalf("expected encrypted credentials: %+v", application.Settings.Mail.SMTP)
+				if application.Settings.Mail.Provider != "smtp" {
+					t.Fatalf("provider = %s", application.Settings.Mail.Provider)
 				}
 				return application, nil
 			},
@@ -242,8 +242,8 @@ func TestServiceUpdate(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Update: %v", err)
 		}
-		if got.Settings.Mail.SMTP.Username != "acme" || got.Settings.Mail.SMTP.Password != "s3cret" {
-			t.Fatalf("decrypted return = %+v", got.Settings.Mail.SMTP)
+		if got.Settings.Mail.Provider != "smtp" {
+			t.Fatalf("provider = %s", got.Settings.Mail.Provider)
 		}
 	})
 }

@@ -649,6 +649,175 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
+  /api/v1/admin/applications/{id}/smtp-configs:
+    get:
+      tags: [Admin]
+      operationId: listSMTPConfigs
+      summary: List SMTP configurations
+      description: |
+        Returns all SMTP configurations for an application. Username and password
+        are never included. New configs are inactive until activated. At most one
+        config is active. If none is active, sending mail fails with
+        `mail_not_configured`.
+      security:
+        - AdminKey: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: SMTP configurations (no credentials)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SMTPConfigList"
+        "401":
+          $ref: "#/components/responses/UnauthorizedAdmin"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      tags: [Admin]
+      operationId: createSMTPConfig
+      summary: Create an SMTP configuration
+      description: |
+        Creates an inactive SMTP configuration. Password must be base64-encoded.
+        Username and password are encrypted at rest and omitted from the response.
+        Activate a config with `POST .../smtp-configs/{sid}/activate` (transactionally
+        deactivates any other active config for the application).
+      security:
+        - AdminKey: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SMTPConfigCreate"
+            example:
+              name: primary
+              host: smtp.example.com
+              port: 587
+              username: acme
+              password: czNjcmV0
+              tls: true
+              skip_verify: false
+      responses:
+        "201":
+          description: Created SMTP configuration (no credentials)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SMTPConfig"
+        "400":
+          $ref: "#/components/responses/InvalidJSONOrValidation"
+        "401":
+          $ref: "#/components/responses/UnauthorizedAdmin"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/admin/applications/{id}/smtp-configs/{sid}:
+    get:
+      tags: [Admin]
+      operationId: getSMTPConfig
+      summary: Get an SMTP configuration
+      security:
+        - AdminKey: []
+      parameters:
+        - $ref: "#/components/parameters/ApplicationId"
+        - $ref: "#/components/parameters/SMTPConfigId"
+      responses:
+        "200":
+          description: SMTP configuration (no credentials)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SMTPConfig"
+        "401":
+          $ref: "#/components/responses/UnauthorizedAdmin"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [Admin]
+      operationId: updateSMTPConfig
+      summary: Update an SMTP configuration
+      description: Omitted fields are unchanged. A new password must be base64-encoded.
+      security:
+        - AdminKey: []
+      parameters:
+        - $ref: "#/components/parameters/ApplicationId"
+        - $ref: "#/components/parameters/SMTPConfigId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SMTPConfigUpdate"
+      responses:
+        "200":
+          description: Updated SMTP configuration (no credentials)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SMTPConfig"
+        "400":
+          $ref: "#/components/responses/InvalidJSONOrValidation"
+        "401":
+          $ref: "#/components/responses/UnauthorizedAdmin"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [Admin]
+      operationId: deleteSMTPConfig
+      summary: Delete an SMTP configuration
+      security:
+        - AdminKey: []
+      parameters:
+        - $ref: "#/components/parameters/ApplicationId"
+        - $ref: "#/components/parameters/SMTPConfigId"
+      responses:
+        "204":
+          description: Deleted
+        "401":
+          $ref: "#/components/responses/UnauthorizedAdmin"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/admin/applications/{id}/smtp-configs/{sid}/activate:
+    post:
+      tags: [Admin]
+      operationId: activateSMTPConfig
+      summary: Activate an SMTP configuration
+      description: |
+        Marks this configuration active and deactivates every other SMTP
+        configuration for the application in one transaction. Sending mail uses
+        the active configuration.
+      security:
+        - AdminKey: []
+      parameters:
+        - $ref: "#/components/parameters/ApplicationId"
+        - $ref: "#/components/parameters/SMTPConfigId"
+      responses:
+        "200":
+          description: Activated SMTP configuration (no credentials)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SMTPConfig"
+        "401":
+          $ref: "#/components/responses/UnauthorizedAdmin"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /api/v1/admin/users/{id}:
     patch:
       tags: [Admin]
@@ -693,6 +862,21 @@ paths:
           $ref: "#/components/responses/InternalError"
 
 components:
+  parameters:
+    ApplicationId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    SMTPConfigId:
+      name: sid
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
   securitySchemes:
     ApplicationClientId:
       type: apiKey
@@ -1298,3 +1482,80 @@ components:
           type: boolean
           default: false
           description: Skip TLS certificate verification (lab/self-signed only).
+
+    SMTPConfig:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        host:
+          type: string
+        port:
+          type: integer
+        tls:
+          type: boolean
+        skip_verify:
+          type: boolean
+        active:
+          type: boolean
+          description: At most one configuration per application is active. New configs default to false.
+
+    SMTPConfigList:
+      type: object
+      properties:
+        smtp_configs:
+          type: array
+          items:
+            $ref: "#/components/schemas/SMTPConfig"
+
+    SMTPConfigCreate:
+      type: object
+      required: [host, port]
+      properties:
+        name:
+          type: string
+        host:
+          type: string
+        port:
+          type: integer
+          minimum: 1
+          maximum: 65535
+        username:
+          type: string
+          writeOnly: true
+        password:
+          type: string
+          format: password
+          writeOnly: true
+          description: Base64-encoded SMTP password.
+        tls:
+          type: boolean
+        skip_verify:
+          type: boolean
+
+    SMTPConfigUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        host:
+          type: string
+        port:
+          type: integer
+          minimum: 1
+          maximum: 65535
+        username:
+          type: string
+          writeOnly: true
+        password:
+          type: string
+          format: password
+          writeOnly: true
+          description: Base64-encoded SMTP password. Omit to keep the stored password.
+        tls:
+          type: boolean
+        skip_verify:
+          type: boolean

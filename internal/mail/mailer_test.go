@@ -41,7 +41,7 @@ func TestServiceDispatchesByProvider(t *testing.T) {
 	}
 
 	sg.called = false
-	if err := svc.SendMagicLink(context.Background(), Config{Provider: ProviderSMTP}, "user@example.com", "https://app.example/auth/callback?token=abc"); err != nil {
+	if err := svc.SendMagicLink(context.Background(), Config{Provider: ProviderSMTP, SMTP: SMTPConfig{Host: "smtp.example.com"}}, "user@example.com", "https://app.example/auth/callback?token=abc"); err != nil {
 		t.Fatalf("smtp: %v", err)
 	}
 	if sg.called || !smtp.called {
@@ -68,6 +68,14 @@ func TestLogMailerImplementsMailer(t *testing.T) {
 	}
 	if err := m.SendMagicLink(context.Background(), Config{}, "user@example.com", "https://example/link"); err != nil {
 		t.Fatalf("SendMagicLink: %v", err)
+	}
+}
+
+func TestServiceRequiresActiveSMTP(t *testing.T) {
+	svc := NewServiceWithSenders(zap.NewNop(), &stubSender{}, &stubSender{})
+	err := svc.SendOTP(context.Background(), Config{Provider: ProviderSMTP}, "user@example.com", "123456")
+	if err == nil || !strings.Contains(err.Error(), "no active smtp configuration") {
+		t.Fatalf("error = %v", err)
 	}
 }
 

@@ -30,6 +30,7 @@ func TestDocsRoutes(t *testing.T) {
 			"/api/v1/me",
 			"/api/v1/admin/applications",
 			"/api/v1/admin/applications/{id}",
+			"/api/v1/admin/applications/{id}/smtp-configs",
 			"/api/v1/admin/users/{id}",
 		} {
 			if !strings.Contains(body, path) {

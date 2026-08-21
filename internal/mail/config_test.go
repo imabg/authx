@@ -52,14 +52,11 @@ func TestConfigValidate(t *testing.T) {
 			cfg:  Config{Provider: ProviderSendGrid, FromEmail: "a@b.com", SendGrid: SendGridConfig{APIKey: "sg"}},
 		},
 		{
-			name:    "smtp missing host",
-			cfg:     Config{Provider: ProviderSMTP, FromEmail: "a@b.com", SMTP: SMTPConfig{Port: 587}},
-			wantErr: "mail.smtp.host is required",
-		},
-		{
-			name:    "smtp bad port",
-			cfg:     Config{Provider: ProviderSMTP, FromEmail: "a@b.com", SMTP: SMTPConfig{Host: "smtp.example.com", Port: 0}},
-			wantErr: "mail.smtp.port must be between 1 and 65535",
+			name: "smtp valid without nested host",
+			cfg: Config{
+				Provider:  ProviderSMTP,
+				FromEmail: "a@b.com",
+			},
 		},
 		{
 			name: "smtp valid",

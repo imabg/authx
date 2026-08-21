@@ -15,15 +15,20 @@ import (
 
 type Service struct {
 	repo    IRepository
+	smtp    ISMTPRepository
 	secrets secret.Box
 }
 
 func NewService(repo IRepository) *Service {
-	return NewServiceWithSecrets(repo, nil)
+	return NewServiceWithDeps(repo, nil, nil)
 }
 
 func NewServiceWithSecrets(repo IRepository, secrets secret.Box) *Service {
-	return &Service{repo: repo, secrets: secrets}
+	return NewServiceWithDeps(repo, nil, secrets)
+}
+
+func NewServiceWithDeps(repo IRepository, smtp ISMTPRepository, secrets secret.Box) *Service {
+	return &Service{repo: repo, smtp: smtp, secrets: secrets}
 }
 
 type CreateInput struct {
@@ -60,6 +65,8 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (CreatedApplica
 	if err := input.Settings.Mail.EncryptSecrets(s.secrets); err != nil {
 		return CreatedApplication{}, err
 	}
+	nestedSMTP := input.Settings.Mail
+	stripNestedSMTP(&input.Settings)
 	clientID, err := randomHex(16)
 	if err != nil {
 		return CreatedApplication{}, err
@@ -82,6 +89,9 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (CreatedApplica
 		UpdatedBy:        "admin",
 	})
 	if err != nil {
+		return CreatedApplication{}, err
+	}
+	if err := seedSMTPFromSettings(ctx, s.smtp, application.ID, nestedSMTP); err != nil {
 		return CreatedApplication{}, err
 	}
 	if err := s.decryptMail(&application); err != nil {
@@ -111,6 +121,9 @@ func (s *Service) GetByClientCredentials(ctx context.Context, clientID, clientSe
 		return Application{}, ErrNotFound
 	}
 	if err := s.decryptMail(&application); err != nil {
+		return Application{}, err
+	}
+	if err := s.attachActiveSMTP(ctx, &application); err != nil {
 		return Application{}, err
 	}
 	return application, nil
@@ -154,6 +167,7 @@ func (s *Service) Update(ctx context.Context, id uuid.UUID, input UpdateInput) (
 	if err := existing.Settings.Mail.EncryptSecrets(s.secrets); err != nil {
 		return Application{}, err
 	}
+	stripNestedSMTP(&existing.Settings)
 	existing.UpdatedBy = "admin"
 	updated, err := s.repo.Update(ctx, existing)
 	if err != nil {
