@@ -18,7 +18,7 @@ type SendGridSender struct {
 	BaseURL    string
 }
 
-func NewSendGridSender(client *http.Client) *SendGridSender {
+func NewSendGridSender(client *http.Client) Sender {
 	if client == nil {
 		client = &http.Client{Timeout: 10 * time.Second}
 	}

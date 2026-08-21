@@ -13,11 +13,9 @@ type UserRepository struct {
 	pool *pgxpool.Pool
 }
 
-func NewUserRepository(pool *pgxpool.Pool) *UserRepository {
+func NewUserRepository(pool *pgxpool.Pool) IUserRepository {
 	return &UserRepository{pool: pool}
 }
-
-var _ IUserRepository = (*UserRepository)(nil)
 
 func (r *UserRepository) Create(ctx context.Context, user User) (User, error) {
 	row := r.pool.QueryRow(ctx, `

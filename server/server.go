@@ -29,7 +29,7 @@ type Server struct {
 	db     *db.DB
 	apps   *app.Service
 	auth   *auth.Service
-	tokens *token.Service
+	tokens token.IService
 	users  users.IUserRepository
 }
 

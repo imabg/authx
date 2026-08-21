@@ -15,11 +15,9 @@ type Repository struct {
 	pool *pgxpool.Pool
 }
 
-func NewRepository(pool *pgxpool.Pool) *Repository {
+func NewRepository(pool *pgxpool.Pool) IRepository {
 	return &Repository{pool: pool}
 }
-
-var _ IRepository = (*Repository)(nil)
 
 func (r *Repository) Create(ctx context.Context, application Application) (Application, error) {
 	settingsJSON, err := json.Marshal(application.Settings)

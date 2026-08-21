@@ -23,7 +23,7 @@ func TestSendGridSenderSendsMail(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	sender := NewSendGridSender(ts.Client())
+	sender := NewSendGridSender(ts.Client()).(*SendGridSender)
 	sender.BaseURL = ts.URL
 	cfg := Config{
 		FromEmail: "noreply@example.com",
@@ -54,7 +54,7 @@ func TestSendGridSenderErrorDoesNotIncludeAPIKey(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	sender := NewSendGridSender(ts.Client())
+	sender := NewSendGridSender(ts.Client()).(*SendGridSender)
 	sender.BaseURL = ts.URL
 	err := sender.Send(context.Background(), Config{
 		FromEmail: "noreply@example.com",

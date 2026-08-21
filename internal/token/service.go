@@ -23,14 +23,12 @@ type Service struct {
 	refresh *RefreshStore
 }
 
-func NewService(cfg config.ApplicationConfig, pool *pgxpool.Pool) *Service {
+func NewService(cfg config.ApplicationConfig, pool *pgxpool.Pool) IService {
 	return &Service{
 		jwt:     NewJWTSigner(cfg),
 		refresh: NewRefreshStore(pool),
 	}
 }
-
-var _ IService = (*Service)(nil)
 
 func (s *Service) Issue(ctx context.Context, user users.User, application *app.Application) (Pair, error) {
 	accessTTL := time.Duration(application.Settings.Tokens.AccessTTLSeconds) * time.Second

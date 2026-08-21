@@ -14,7 +14,7 @@ type SMTPSender struct {
 	DialContext func(ctx context.Context, network, address string) (net.Conn, error)
 }
 
-func NewSMTPSender() *SMTPSender {
+func NewSMTPSender() Sender {
 	return &SMTPSender{}
 }
 

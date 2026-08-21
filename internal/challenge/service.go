@@ -17,11 +17,9 @@ type Service struct {
 	repo IRepository
 }
 
-func NewService(repo IRepository) *Service {
+func NewService(repo IRepository) IService {
 	return &Service{repo: repo}
 }
-
-var _ IService = (*Service)(nil)
 
 func HashSecret(secret string) string {
 	sum := sha256.Sum256([]byte(secret))

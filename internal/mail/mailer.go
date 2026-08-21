@@ -25,7 +25,7 @@ type Service struct {
 	smtp     Sender
 }
 
-func NewService(logger *zap.Logger) *Service {
+func NewService(logger *zap.Logger) Mailer {
 	return &Service{
 		log:      NewLogMailer(logger),
 		sendgrid: NewSendGridSender(nil),
@@ -33,15 +33,13 @@ func NewService(logger *zap.Logger) *Service {
 	}
 }
 
-func NewServiceWithSenders(logger *zap.Logger, sendgrid, smtp Sender) *Service {
+func NewServiceWithSenders(logger *zap.Logger, sendgrid, smtp Sender) Mailer {
 	return &Service{
 		log:      NewLogMailer(logger),
 		sendgrid: sendgrid,
 		smtp:     smtp,
 	}
 }
-
-var _ Mailer = (*Service)(nil)
 
 func (s *Service) SendOTP(ctx context.Context, cfg Config, to, code string) error {
 	return s.dispatch(ctx, cfg, otpMessage(cfg, to, code))
@@ -78,9 +76,6 @@ func NewLogMailer(logger *zap.Logger) *LogMailer {
 	}
 	return &LogMailer{logger: logger}
 }
-
-var _ Mailer = (*LogMailer)(nil)
-var _ Sender = (*LogMailer)(nil)
 
 func (m *LogMailer) SendOTP(_ context.Context, _ Config, to, code string) error {
 	m.logger.Info("mail: otp", zap.String("to", to), zap.String("code", code))
