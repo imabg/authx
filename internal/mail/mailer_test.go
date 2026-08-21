@@ -2,10 +2,13 @@ package mail
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 type stubSender struct {
@@ -74,4 +77,107 @@ func TestServiceRequiresActiveSMTP(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "no active smtp configuration") {
 		t.Fatalf("error = %v", err)
 	}
+}
+
+func TestServiceLogsSuccessfulSend(t *testing.T) {
+	core, logs := observer.New(zap.InfoLevel)
+	sg := &stubSender{}
+	smtp := &stubSender{}
+	svc := NewServiceWithSenders(zap.New(core), sg, smtp)
+
+	ctx := WithApplicationID(context.Background(), "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
+	cfg := Config{
+		Provider: ProviderSMTP,
+		SMTP:     SMTPConfig{Host: "smtp.example.com", Username: "smtp-user", Password: "smtp-password"},
+	}
+	if err := svc.SendOTP(ctx, cfg, "User@Example.COM", "123456"); err != nil {
+		t.Fatalf("SendOTP: %v", err)
+	}
+
+	sent := logs.FilterMessage("mail: sent").All()
+	if len(sent) != 1 {
+		t.Fatalf("sent logs = %d, want 1", len(sent))
+	}
+	fields := sent[0].ContextMap()
+	if fields["provider"] != "smtp" {
+		t.Fatalf("provider = %v", fields["provider"])
+	}
+	if fields["recipient_domain"] != "example.com" {
+		t.Fatalf("recipient_domain = %v", fields["recipient_domain"])
+	}
+	if fields["application_id"] != "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa" {
+		t.Fatalf("application_id = %v", fields["application_id"])
+	}
+	if fields["smtp_host"] != "smtp.example.com" {
+		t.Fatalf("smtp_host = %v", fields["smtp_host"])
+	}
+	assertLogOmitsSecrets(t, fields, "smtp-user", "smtp-password", "123456", "user@example.com")
+}
+
+func TestServiceLogsProviderError(t *testing.T) {
+	core, logs := observer.New(zap.InfoLevel)
+	providerErr := errors.New("535 authentication failed")
+	svc := NewServiceWithSenders(zap.New(core), &stubSender{}, &stubSender{err: providerErr})
+
+	ctx := WithApplicationID(context.Background(), "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")
+	cfg := Config{
+		Provider: ProviderSMTP,
+		SMTP:     SMTPConfig{Host: "smtp.example.com", Username: "smtp-user", Password: "smtp-password"},
+	}
+	err := svc.SendMagicLink(ctx, cfg, "other@acme.test", "https://app.example/auth/callback?token=abc")
+	if !errors.Is(err, providerErr) {
+		t.Fatalf("error = %v", err)
+	}
+
+	logged := logs.FilterMessage("mail: provider error").All()
+	if len(logged) != 1 {
+		t.Fatalf("error logs = %d, want 1", len(logged))
+	}
+	if logged[0].Level != zap.ErrorLevel {
+		t.Fatalf("level = %s", logged[0].Level)
+	}
+	fields := logged[0].ContextMap()
+	if fields["provider"] != "smtp" || fields["recipient_domain"] != "acme.test" {
+		t.Fatalf("fields = %+v", fields)
+	}
+	if fields["application_id"] != "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb" {
+		t.Fatalf("application_id = %v", fields["application_id"])
+	}
+	if !strings.Contains(fmtErr(fields["error"]), "535 authentication failed") {
+		t.Fatalf("error field = %v", fields["error"])
+	}
+	assertLogOmitsSecrets(t, fields, "smtp-user", "smtp-password")
+}
+
+func TestRecipientDomain(t *testing.T) {
+	tests := []struct {
+		to   string
+		want string
+	}{
+		{to: "User@Example.COM", want: "example.com"},
+		{to: " not-an-email ", want: ""},
+		{to: "", want: ""},
+	}
+	for _, tt := range tests {
+		if got := recipientDomain(tt.to); got != tt.want {
+			t.Fatalf("recipientDomain(%q) = %q, want %q", tt.to, got, tt.want)
+		}
+	}
+}
+
+func assertLogOmitsSecrets(t *testing.T, fields map[string]any, secrets ...string) {
+	t.Helper()
+	raw := fmt.Sprintf("%v", fields)
+	for _, secret := range secrets {
+		if strings.Contains(raw, secret) {
+			t.Fatalf("log leaked %q: %s", secret, raw)
+		}
+	}
+}
+
+func fmtErr(v any) string {
+	if err, ok := v.(error); ok {
+		return err.Error()
+	}
+	return fmt.Sprintf("%v", v)
 }

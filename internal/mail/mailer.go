@@ -23,21 +23,22 @@ type Sender interface {
 }
 
 type Service struct {
+	logger   *zap.Logger
 	log      *LogMailer
 	sendgrid Sender
 	smtp     Sender
 }
 
 func NewService(logger *zap.Logger) Mailer {
-	return &Service{
-		log:      NewLogMailer(logger),
-		sendgrid: NewSendGridSender(nil),
-		smtp:     NewSMTPSender(),
-	}
+	return NewServiceWithSenders(logger, NewSendGridSender(nil), NewSMTPSender())
 }
 
 func NewServiceWithSenders(logger *zap.Logger, sendgrid, smtp Sender) Mailer {
+	if logger == nil {
+		logger = zap.L()
+	}
 	return &Service{
+		logger:   logger,
 		log:      NewLogMailer(logger),
 		sendgrid: sendgrid,
 		smtp:     smtp,
@@ -53,7 +54,18 @@ func (s *Service) SendMagicLink(ctx context.Context, cfg Config, to, link string
 }
 
 func (s *Service) dispatch(ctx context.Context, cfg Config, msg Message) error {
-	switch Provider(strings.ToLower(strings.TrimSpace(string(cfg.Provider)))) {
+	err := s.send(ctx, cfg, msg)
+	fields := sendLogFields(ctx, cfg, msg)
+	if err != nil {
+		s.logger.Error("mail: provider error", append(fields, zap.Error(err))...)
+		return err
+	}
+	s.logger.Info("mail: sent", fields...)
+	return nil
+}
+
+func (s *Service) send(ctx context.Context, cfg Config, msg Message) error {
+	switch normalizeProvider(cfg.Provider) {
 	case ProviderSendGrid:
 		if s.sendgrid == nil {
 			return fmt.Errorf("sendgrid sender is not configured")
@@ -70,6 +82,43 @@ func (s *Service) dispatch(ctx context.Context, cfg Config, msg Message) error {
 	default:
 		return s.log.Send(ctx, cfg, msg)
 	}
+}
+
+func normalizeProvider(p Provider) Provider {
+	switch Provider(strings.ToLower(strings.TrimSpace(string(p)))) {
+	case ProviderSendGrid:
+		return ProviderSendGrid
+	case ProviderSMTP:
+		return ProviderSMTP
+	default:
+		return ProviderLog
+	}
+}
+
+func sendLogFields(ctx context.Context, cfg Config, msg Message) []zap.Field {
+	provider := normalizeProvider(cfg.Provider)
+	fields := []zap.Field{
+		zap.String("provider", string(provider)),
+		zap.String("recipient_domain", recipientDomain(msg.To)),
+	}
+	if id := applicationIDFrom(ctx); id != "" {
+		fields = append(fields, zap.String("application_id", id))
+	}
+	if provider == ProviderSMTP {
+		if host := strings.TrimSpace(cfg.SMTP.Host); host != "" {
+			fields = append(fields, zap.String("smtp_host", host))
+		}
+	}
+	return fields
+}
+
+func recipientDomain(to string) string {
+	to = strings.ToLower(strings.TrimSpace(to))
+	at := strings.LastIndex(to, "@")
+	if at <= 0 || at == len(to)-1 {
+		return ""
+	}
+	return to[at+1:]
 }
 
 type LogMailer struct {
