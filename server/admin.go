@@ -1,7 +1,6 @@
 package server
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -146,30 +145,12 @@ func (srv *Server) handleAdminUpdateUser(w http.ResponseWriter, r *http.Request)
 		httpx.WriteError(w, http.StatusBadRequest, "invalid_json", "invalid request body")
 		return
 	}
-	user, err := srv.users.GetByID(r.Context(), id)
-	if err != nil {
-		if errors.Is(err, users.ErrNotFound) {
-			httpx.WriteError(w, http.StatusNotFound, "not_found", "user not found")
-			return
-		}
-		srv.logInternalError(r, err)
-		httpx.WriteError(w, http.StatusInternalServerError, "internal_error", "internal error")
-		return
-	}
-	updated, err := applyAndStoreUserUpdate(r.Context(), srv.users, user, body)
+	updated, err := srv.users.UpdateProfile(r.Context(), id, body)
 	if err != nil {
 		writeUserUpdateError(w, r, srv, err)
 		return
 	}
 	httpx.WriteJSON(w, http.StatusOK, updated)
-}
-
-func applyAndStoreUserUpdate(ctx context.Context, repo users.IUserRepository, user users.User, body updateUserBody) (users.User, error) {
-	patched, err := users.ApplyProfileUpdate(user, body)
-	if err != nil {
-		return users.User{}, err
-	}
-	return repo.Update(ctx, patched)
 }
 
 func writeUserUpdateError(w http.ResponseWriter, r *http.Request, srv *Server, err error) {

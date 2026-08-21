@@ -103,7 +103,7 @@ func (srv *Server) handleUpdateMe(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, http.StatusBadRequest, "invalid_json", "invalid request body")
 		return
 	}
-	updated, err := applyAndStoreUserUpdate(r.Context(), srv.users, user, body)
+	updated, err := srv.users.UpdateProfile(r.Context(), user.ID, body)
 	if err != nil {
 		writeUserUpdateError(w, r, srv, err)
 		return
