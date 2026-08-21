@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 )
 
+// ISMTPRepository is the persistence adapter behind SMTPStore.
 type ISMTPRepository interface {
 	Create(ctx context.Context, cfg SMTPConfig) (SMTPConfig, error)
 	ListByApplication(ctx context.Context, applicationID uuid.UUID) ([]SMTPConfig, error)

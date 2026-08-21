@@ -29,6 +29,7 @@ type Server struct {
 	server *http.Server
 	db     *db.DB
 	apps   *app.Service
+	smtp   *app.SMTPStore
 	auth   *auth.Service
 	tokens token.IService
 	users  *users.Service
@@ -45,7 +46,8 @@ func Setup(cfg config.ApplicationConfig, database *db.DB) *Server {
 	pool := database.Pool()
 	appRepo := app.NewRepository(pool)
 	smtpRepo := app.NewSMTPRepository(pool)
-	appSvc := app.NewServiceWithDeps(appRepo, smtpRepo, secrets)
+	smtpStore := app.NewSMTPStore(appRepo, smtpRepo, secrets)
+	appSvc := app.NewServiceWithDeps(appRepo, smtpStore, secrets)
 	userRepo := users.NewUserRepository(pool)
 	userSvc := users.NewService(userRepo)
 	challengeSvc := challenge.NewService(challenge.NewRepository(pool))
@@ -58,6 +60,7 @@ func Setup(cfg config.ApplicationConfig, database *db.DB) *Server {
 		Config: cfg,
 		db:     database,
 		apps:   appSvc,
+		smtp:   smtpStore,
 		auth:   authSvc,
 		tokens: tokenSvc,
 		users:  userSvc,
