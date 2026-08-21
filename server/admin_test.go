@@ -119,6 +119,61 @@ func TestHandleGetApplication(t *testing.T) {
 	}
 }
 
+func TestHandleGetApplicationOmitsSMTPCredentials(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	repo := appmock.NewMockAppRepository(ctrl)
+	id := uuid.MustParse("dddddddd-dddd-dddd-dddd-dddddddddddd")
+	stored := app.Application{
+		ID:       id,
+		Name:     "Acme",
+		ClientID: "app_demo",
+		Status:   app.StatusActive,
+		Settings: func() app.Settings {
+			s := app.DefaultSettings()
+			s.Mail.Provider = "smtp"
+			s.Mail.FromEmail = "noreply@example.com"
+			s.Mail.SMTP.Host = "smtp.example.com"
+			s.Mail.SMTP.Port = 587
+			s.Mail.SMTP.Username = "acme"
+			s.Mail.SMTP.Password = "smtp-real"
+			return s
+		}(),
+	}
+	repo.EXPECT().GetByID(gomock.Any(), id).Return(stored, nil)
+
+	cfg := config.ApplicationConfig{}
+	cfg.AdminAPIKey = "dev-admin-key"
+	srv := &Server{apps: app.NewService(repo), Config: cfg}
+	srv.setupRouter()
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/applications/"+id.String(), nil)
+	req.Header.Set("X-Authx-Admin-Key", "dev-admin-key")
+	rr := httptest.NewRecorder()
+	srv.Router.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d body = %s", rr.Code, rr.Body.String())
+	}
+	body := rr.Body.String()
+	if strings.Contains(body, "acme") || strings.Contains(body, "smtp-real") {
+		t.Fatalf("response leaked smtp credentials: %s", body)
+	}
+	var parsed map[string]any
+	if err := json.Unmarshal(rr.Body.Bytes(), &parsed); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	mail := parsed["settings"].(map[string]any)["mail"].(map[string]any)
+	smtp := mail["smtp"].(map[string]any)
+	if _, ok := smtp["username"]; ok {
+		t.Fatalf("username present: %+v", smtp)
+	}
+	if _, ok := smtp["password"]; ok {
+		t.Fatalf("password present: %+v", smtp)
+	}
+	if smtp["host"] != "smtp.example.com" {
+		t.Fatalf("host = %+v", smtp["host"])
+	}
+}
+
 func TestHandleUpdateApplicationBlockedDomains(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	repo := appmock.NewMockAppRepository(ctrl)

@@ -34,6 +34,11 @@ type ApplicationConfig struct {
 	Mail          struct {
 		Driver string `mapstructure:"driver"`
 	} `mapstructure:"mail"`
+	Encryption struct {
+		// Key is a 32-byte AES-256 key as 64 hex characters or standard base64.
+		// Used to encrypt SMTP username and password at rest. Also accepted as ENCRYPTION_KEY.
+		Key string `mapstructure:"key"`
+	} `mapstructure:"encryption"`
 }
 
 // IsDevelopment reports whether env is a local/dev environment.
@@ -65,6 +70,7 @@ func NewConfig() ApplicationConfig {
 	viper.SetDefault("jwt.issuer", "authx")
 	viper.SetDefault("public_base_url", "http://localhost:3000")
 	viper.SetDefault("mail.driver", "log")
+	_ = viper.BindEnv("encryption.key", "ENCRYPTION_KEY")
 	if err := viper.ReadInConfig(); err != nil {
 		log.Fatalf("Error reading config file %s", err)
 	}

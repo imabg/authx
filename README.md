@@ -143,7 +143,7 @@ export CLIENT_ID=...
 export CLIENT_SECRET=...
 ```
 
-Update OTP length, expiry, and mail credentials (SendGrid or SMTP) on an existing application. Stored API keys and SMTP passwords are returned as `********`; posting that masked value leaves the secret unchanged.
+Update OTP length, expiry, and mail credentials (SendGrid or SMTP) on an existing application. Stored SendGrid API keys are returned as `********`; posting that masked value leaves the secret unchanged. SMTP username and password are never returned. Send the SMTP password as standard base64; Authx decodes it and encrypts username and password at rest (`encryption.key` in config).
 
 ```bash
 curl -sS -X PATCH http://localhost:8080/api/v1/admin/applications/$APPLICATION_ID \
