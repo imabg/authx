@@ -11,11 +11,23 @@ import (
 	"github.com/imabg/authx/internal/validate"
 )
 
-func (s *Service) CreateSMTPConfig(ctx context.Context, applicationID uuid.UUID, input SMTPCreateInput) (SMTPConfig, error) {
+// SMTPStore owns application-scoped SMTP transports: validation, secret
+// encode/encrypt/decrypt/redaction, and persistence.
+type SMTPStore struct {
+	apps    IRepository
+	repo    ISMTPRepository
+	secrets secret.Box
+}
+
+func NewSMTPStore(apps IRepository, repo ISMTPRepository, secrets secret.Box) *SMTPStore {
+	return &SMTPStore{apps: apps, repo: repo, secrets: secrets}
+}
+
+func (s *SMTPStore) Create(ctx context.Context, applicationID uuid.UUID, input SMTPCreateInput) (SMTPConfig, error) {
 	if err := s.requireApplication(ctx, applicationID); err != nil {
 		return SMTPConfig{}, err
 	}
-	if err := s.ensureSMTPRepo(); err != nil {
+	if err := s.ensureRepo(); err != nil {
 		return SMTPConfig{}, err
 	}
 	if err := validate.Struct(input); err != nil {
@@ -39,21 +51,21 @@ func (s *Service) CreateSMTPConfig(ctx context.Context, applicationID uuid.UUID,
 	if err := decodeAndEncryptSMTP(&cfg, s.secrets); err != nil {
 		return SMTPConfig{}, err
 	}
-	created, err := s.smtp.Create(ctx, cfg)
+	created, err := s.repo.Create(ctx, cfg)
 	if err != nil {
 		return SMTPConfig{}, err
 	}
 	return redactSMTP(created), nil
 }
 
-func (s *Service) ListSMTPConfigs(ctx context.Context, applicationID uuid.UUID) ([]SMTPConfig, error) {
+func (s *SMTPStore) List(ctx context.Context, applicationID uuid.UUID) ([]SMTPConfig, error) {
 	if err := s.requireApplication(ctx, applicationID); err != nil {
 		return nil, err
 	}
-	if err := s.ensureSMTPRepo(); err != nil {
+	if err := s.ensureRepo(); err != nil {
 		return nil, err
 	}
-	cfgs, err := s.smtp.ListByApplication(ctx, applicationID)
+	cfgs, err := s.repo.ListByApplication(ctx, applicationID)
 	if err != nil {
 		return nil, err
 	}
@@ -63,31 +75,31 @@ func (s *Service) ListSMTPConfigs(ctx context.Context, applicationID uuid.UUID) 
 	return cfgs, nil
 }
 
-func (s *Service) GetSMTPConfig(ctx context.Context, applicationID, id uuid.UUID) (SMTPConfig, error) {
+func (s *SMTPStore) Get(ctx context.Context, applicationID, id uuid.UUID) (SMTPConfig, error) {
 	if err := s.requireApplication(ctx, applicationID); err != nil {
 		return SMTPConfig{}, err
 	}
-	if err := s.ensureSMTPRepo(); err != nil {
+	if err := s.ensureRepo(); err != nil {
 		return SMTPConfig{}, err
 	}
-	cfg, err := s.smtp.GetByID(ctx, applicationID, id)
+	cfg, err := s.repo.GetByID(ctx, applicationID, id)
 	if err != nil {
 		return SMTPConfig{}, err
 	}
 	return redactSMTP(cfg), nil
 }
 
-func (s *Service) UpdateSMTPConfig(ctx context.Context, applicationID, id uuid.UUID, input SMTPUpdateInput) (SMTPConfig, error) {
+func (s *SMTPStore) Update(ctx context.Context, applicationID, id uuid.UUID, input SMTPUpdateInput) (SMTPConfig, error) {
 	if err := s.requireApplication(ctx, applicationID); err != nil {
 		return SMTPConfig{}, err
 	}
-	if err := s.ensureSMTPRepo(); err != nil {
+	if err := s.ensureRepo(); err != nil {
 		return SMTPConfig{}, err
 	}
 	if err := validate.Struct(input); err != nil {
 		return SMTPConfig{}, mapSMTPValidationError(err)
 	}
-	existing, err := s.smtp.GetByID(ctx, applicationID, id)
+	existing, err := s.repo.GetByID(ctx, applicationID, id)
 	if err != nil {
 		return SMTPConfig{}, err
 	}
@@ -120,57 +132,47 @@ func (s *Service) UpdateSMTPConfig(ctx context.Context, applicationID, id uuid.U
 		return SMTPConfig{}, err
 	}
 	existing.UpdatedBy = "admin"
-	updated, err := s.smtp.Update(ctx, existing)
+	updated, err := s.repo.Update(ctx, existing)
 	if err != nil {
 		return SMTPConfig{}, err
 	}
 	return redactSMTP(updated), nil
 }
 
-func (s *Service) ActivateSMTPConfig(ctx context.Context, applicationID, id uuid.UUID) (SMTPConfig, error) {
+func (s *SMTPStore) Activate(ctx context.Context, applicationID, id uuid.UUID) (SMTPConfig, error) {
 	if err := s.requireApplication(ctx, applicationID); err != nil {
 		return SMTPConfig{}, err
 	}
-	if err := s.ensureSMTPRepo(); err != nil {
+	if err := s.ensureRepo(); err != nil {
 		return SMTPConfig{}, err
 	}
-	cfg, err := s.smtp.Activate(ctx, applicationID, id)
+	cfg, err := s.repo.Activate(ctx, applicationID, id)
 	if err != nil {
 		return SMTPConfig{}, err
 	}
 	return redactSMTP(cfg), nil
 }
 
-func (s *Service) DeleteSMTPConfig(ctx context.Context, applicationID, id uuid.UUID) error {
+func (s *SMTPStore) Delete(ctx context.Context, applicationID, id uuid.UUID) error {
 	if err := s.requireApplication(ctx, applicationID); err != nil {
 		return err
 	}
-	if err := s.ensureSMTPRepo(); err != nil {
+	if err := s.ensureRepo(); err != nil {
 		return err
 	}
-	return s.smtp.Delete(ctx, applicationID, id)
+	return s.repo.Delete(ctx, applicationID, id)
 }
 
-func (s *Service) requireApplication(ctx context.Context, applicationID uuid.UUID) error {
-	_, err := s.repo.GetByID(ctx, applicationID)
-	return err
-}
-
-func (s *Service) ensureSMTPRepo() error {
-	if s.smtp == nil {
-		return ErrSMTPNotConfigured
-	}
-	return nil
-}
-
-func (s *Service) attachActiveSMTP(ctx context.Context, application *Application) error {
-	if application == nil || s.smtp == nil {
+// AttachActive decrypts the active SMTP transport into application settings
+// when the mail provider is SMTP. Missing active config clears nested SMTP.
+func (s *SMTPStore) AttachActive(ctx context.Context, application *Application) error {
+	if s == nil || application == nil || s.repo == nil {
 		return nil
 	}
 	if mail.Provider(strings.ToLower(strings.TrimSpace(string(application.Settings.Mail.Provider)))) != mail.ProviderSMTP {
 		return nil
 	}
-	cfg, err := s.smtp.GetActive(ctx, application.ID)
+	cfg, err := s.repo.GetActive(ctx, application.ID)
 	if errors.Is(err, ErrSMTPNotFound) {
 		application.Settings.Mail.SMTP = mail.SMTPConfig{}
 		return nil
@@ -185,6 +187,48 @@ func (s *Service) attachActiveSMTP(ctx context.Context, application *Application
 	cfg.Username = username
 	cfg.Password = password
 	application.Settings.Mail.SMTP = cfg.toMailSMTP()
+	return nil
+}
+
+// SeedFromSettings persists nested create-time SMTP (already encrypted) as an
+// inactive "default" config. No-op when host is empty or the store is unset.
+func (s *SMTPStore) SeedFromSettings(ctx context.Context, applicationID uuid.UUID, mailCfg mail.Config) error {
+	if s == nil || s.repo == nil || strings.TrimSpace(mailCfg.SMTP.Host) == "" {
+		return nil
+	}
+	port := mailCfg.SMTP.Port
+	if port == 0 {
+		port = 587
+	}
+	_, err := s.repo.Create(ctx, SMTPConfig{
+		ApplicationID: applicationID,
+		Name:          "default",
+		Host:          strings.TrimSpace(mailCfg.SMTP.Host),
+		Port:          port,
+		Username:      mailCfg.SMTP.Username,
+		Password:      mailCfg.SMTP.Password,
+		TLS:           mailCfg.SMTP.TLS,
+		SkipVerify:    mailCfg.SMTP.SkipVerify,
+		UpdatedBy:     "admin",
+	})
+	return err
+}
+
+func (s *SMTPStore) requireApplication(ctx context.Context, applicationID uuid.UUID) error {
+	if s == nil {
+		return ErrSMTPNotConfigured
+	}
+	if s.apps == nil {
+		return ErrNotFound
+	}
+	_, err := s.apps.GetByID(ctx, applicationID)
+	return err
+}
+
+func (s *SMTPStore) ensureRepo() error {
+	if s == nil || s.repo == nil {
+		return ErrSMTPNotConfigured
+	}
 	return nil
 }
 
@@ -241,28 +285,6 @@ func smtpValidationMessage(path, tag, param string) (string, bool) {
 		}
 	}
 	return validate.StandardMessages(path, tag, param)
-}
-
-func seedSMTPFromSettings(ctx context.Context, smtp ISMTPRepository, applicationID uuid.UUID, mailCfg mail.Config) error {
-	if smtp == nil || strings.TrimSpace(mailCfg.SMTP.Host) == "" {
-		return nil
-	}
-	port := mailCfg.SMTP.Port
-	if port == 0 {
-		port = 587
-	}
-	_, err := smtp.Create(ctx, SMTPConfig{
-		ApplicationID: applicationID,
-		Name:          "default",
-		Host:          strings.TrimSpace(mailCfg.SMTP.Host),
-		Port:          port,
-		Username:      mailCfg.SMTP.Username,
-		Password:      mailCfg.SMTP.Password,
-		TLS:           mailCfg.SMTP.TLS,
-		SkipVerify:    mailCfg.SMTP.SkipVerify,
-		UpdatedBy:     "admin",
-	})
-	return err
 }
 
 func stripNestedSMTP(settings *Settings) {

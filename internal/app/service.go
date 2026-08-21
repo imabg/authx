@@ -15,7 +15,7 @@ import (
 
 type Service struct {
 	repo    IRepository
-	smtp    ISMTPRepository
+	smtp    *SMTPStore
 	secrets secret.Box
 }
 
@@ -27,7 +27,7 @@ func NewServiceWithSecrets(repo IRepository, secrets secret.Box) *Service {
 	return NewServiceWithDeps(repo, nil, secrets)
 }
 
-func NewServiceWithDeps(repo IRepository, smtp ISMTPRepository, secrets secret.Box) *Service {
+func NewServiceWithDeps(repo IRepository, smtp *SMTPStore, secrets secret.Box) *Service {
 	return &Service{repo: repo, smtp: smtp, secrets: secrets}
 }
 
@@ -91,7 +91,7 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (CreatedApplica
 	if err != nil {
 		return CreatedApplication{}, err
 	}
-	if err := seedSMTPFromSettings(ctx, s.smtp, application.ID, nestedSMTP); err != nil {
+	if err := s.smtp.SeedFromSettings(ctx, application.ID, nestedSMTP); err != nil {
 		return CreatedApplication{}, err
 	}
 	if err := s.decryptMail(&application); err != nil {
@@ -123,7 +123,7 @@ func (s *Service) GetByClientCredentials(ctx context.Context, clientID, clientSe
 	if err := s.decryptMail(&application); err != nil {
 		return Application{}, err
 	}
-	if err := s.attachActiveSMTP(ctx, &application); err != nil {
+	if err := s.smtp.AttachActive(ctx, &application); err != nil {
 		return Application{}, err
 	}
 	return application, nil

@@ -116,7 +116,7 @@ func (f *fakeSMTPRepo) Delete(_ context.Context, applicationID, id uuid.UUID) er
 	return nil
 }
 
-func TestSMTPConfigLifecycle(t *testing.T) {
+func TestSMTPStoreLifecycle(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	repo := mock.NewMockAppRepository(ctrl)
 	smtpRepo := newFakeSMTPRepo()
@@ -127,10 +127,10 @@ func TestSMTPConfigLifecycle(t *testing.T) {
 	appID := uuid.MustParse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
 	repo.EXPECT().GetByID(gomock.Any(), appID).Return(app.Application{ID: appID, Settings: app.DefaultSettings()}, nil).AnyTimes()
 
-	svc := app.NewServiceWithDeps(repo, smtpRepo, box)
+	store := app.NewSMTPStore(repo, smtpRepo, box)
 	ctx := context.Background()
 
-	first, err := svc.CreateSMTPConfig(ctx, appID, app.SMTPCreateInput{
+	first, err := store.Create(ctx, appID, app.SMTPCreateInput{
 		Name:     "primary",
 		Host:     "smtp.example.com",
 		Port:     587,
@@ -138,7 +138,7 @@ func TestSMTPConfigLifecycle(t *testing.T) {
 		Password: "czNjcmV0",
 	})
 	if err != nil {
-		t.Fatalf("CreateSMTPConfig: %v", err)
+		t.Fatalf("Create: %v", err)
 	}
 	if first.Active {
 		t.Fatal("new configs must default to inactive")
@@ -147,16 +147,16 @@ func TestSMTPConfigLifecycle(t *testing.T) {
 		t.Fatalf("create leaked credentials: %+v", first)
 	}
 
-	second, err := svc.CreateSMTPConfig(ctx, appID, app.SMTPCreateInput{
+	second, err := store.Create(ctx, appID, app.SMTPCreateInput{
 		Name: "backup",
 		Host: "smtp-backup.example.com",
 		Port: 465,
 	})
 	if err != nil {
-		t.Fatalf("CreateSMTPConfig backup: %v", err)
+		t.Fatalf("Create backup: %v", err)
 	}
 
-	activated, err := svc.ActivateSMTPConfig(ctx, appID, first.ID)
+	activated, err := store.Activate(ctx, appID, first.ID)
 	if err != nil {
 		t.Fatalf("Activate: %v", err)
 	}
@@ -164,7 +164,7 @@ func TestSMTPConfigLifecycle(t *testing.T) {
 		t.Fatal("expected active")
 	}
 
-	listed, err := svc.ListSMTPConfigs(ctx, appID)
+	listed, err := store.List(ctx, appID)
 	if err != nil {
 		t.Fatalf("List: %v", err)
 	}
@@ -187,11 +187,14 @@ func TestSMTPConfigLifecycle(t *testing.T) {
 		t.Fatalf("activeCount = %d", activeCount)
 	}
 
-	activated, err = svc.ActivateSMTPConfig(ctx, appID, second.ID)
+	activated, err = store.Activate(ctx, appID, second.ID)
 	if err != nil {
 		t.Fatalf("Activate second: %v", err)
 	}
-	listed, _ = svc.ListSMTPConfigs(ctx, appID)
+	if !activated.Active || activated.ID != second.ID {
+		t.Fatalf("activated = %+v", activated)
+	}
+	listed, _ = store.List(ctx, appID)
 	activeCount = 0
 	for _, cfg := range listed {
 		if cfg.Active {
@@ -205,7 +208,7 @@ func TestSMTPConfigLifecycle(t *testing.T) {
 		t.Fatalf("activeCount after switch = %d", activeCount)
 	}
 
-	_, err = svc.CreateSMTPConfig(ctx, appID, app.SMTPCreateInput{Host: "smtp.example.com", Port: 587, Password: "not-base64!"})
+	_, err = store.Create(ctx, appID, app.SMTPCreateInput{Host: "smtp.example.com", Port: 587, Password: "not-base64!"})
 	if err == nil || !strings.Contains(err.Error(), "mail.smtp.password must be base64-encoded") {
 		t.Fatalf("error = %v", err)
 	}
@@ -237,9 +240,10 @@ func TestGetByClientCredentialsUsesActiveSMTP(t *testing.T) {
 	repo.EXPECT().GetByClientID(gomock.Any(), "app_demo").Return(stored, nil)
 	repo.EXPECT().GetByID(gomock.Any(), appID).Return(stored, nil).AnyTimes()
 
-	svc := app.NewServiceWithDeps(repo, smtpRepo, box)
+	store := app.NewSMTPStore(repo, smtpRepo, box)
+	svc := app.NewServiceWithDeps(repo, store, box)
 	ctx := context.Background()
-	created, err := svc.CreateSMTPConfig(ctx, appID, app.SMTPCreateInput{
+	created, err := store.Create(ctx, appID, app.SMTPCreateInput{
 		Host:     "smtp.example.com",
 		Port:     587,
 		Username: "acme",
@@ -248,7 +252,7 @@ func TestGetByClientCredentialsUsesActiveSMTP(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
-	if _, err := svc.ActivateSMTPConfig(ctx, appID, created.ID); err != nil {
+	if _, err := store.Activate(ctx, appID, created.ID); err != nil {
 		t.Fatalf("activate: %v", err)
 	}
 
